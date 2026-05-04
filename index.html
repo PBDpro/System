@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRT Enterprise</title>
+    
+    <!-- นำเข้า Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- นำเข้า Google Fonts: Kanit -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- กำหนด Font -->
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #f0f9ff; /* สีพื้นหลังโทนฟ้าอ่อน แบบเดียวกับฟอร์ม */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-6">
+
+    <div class="max-w-5xl w-full bg-white rounded-3xl shadow-xl overflow-hidden p-8 md:p-12 border border-sky-100">
+        
+        <!-- ========================================== -->
+        <!-- ส่วนหัว และ ช่องสำหรับใส่โลโก้ (Logo Section) -->
+        <!-- ========================================== -->
+        <div class="text-center mb-10 flex flex-col items-center">
+            
+            <!-- วิธีเปลี่ยนโลโก้: เปลี่ยนลิงก์ใน src="..." เป็นลิงก์รูปโลโก้ของคุณ หรือใส่ที่อยู่ไฟล์รูปเช่น src="logo.png" -->
+            <div class="mb-6 relative group cursor-pointer" title="คลิกเพื่อแก้ไข/เปลี่ยนโลโก้ในโค้ด">
+                <div class="w-40 h-40 border-4 border-dashed border-sky-300 rounded-2xl flex items-center justify-center bg-sky-50 overflow-hidden hover:bg-sky-100 transition-colors">
+                    <!-- รูปโลโก้ -->
+                    <img 
+                        src="Main.jpg" 
+                        alt="Company Logo" 
+                        class="object-contain w-full h-full p-2 group-hover:scale-105 transition-transform duration-300"
+                        id="company-logo"
+                    >
+                </div>
+                <div class="absolute -bottom-3 bg-sky-600 text-white text-xs px-3 py-1 rounded-full shadow-md left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                    PBD GROUP
+                </div>
+            </div>
+
+            <h1 class="text-3xl md:text-4xl font-bold text-sky-800 mb-2">SRT Enterprise</h1>
+            <p class="text-gray-500 text-lg">กรุณาเลือกสาขาที่คุณต้องการ</p>
+                 </div>
+
+             <!-- ========================================== -->
+              <!-- ส่วนเมนูลิงก์ไปยังหน้าต่างๆ (Grid Menu) -->
+              <!-- ========================================== -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            
+            <!-- Link 1: NT -->
+            <a href="indexcharger.html" class="group flex flex-col items-center justify-center p-6 bg-white border-2 border-sky-100 rounded-2xl shadow-sm hover:shadow-lg hover:border-sky-400 hover:bg-sky-50 transition-all duration-300 transform hover:-translate-y-1">
+                <div class="w-20 h-20 mb-3 flex items-center justify-center">
+                    <img src="charger.png" alt="charger Logo" class="max-w-full max-h-full object-contain group-hover:scale-110 transition-transform duration-300">
+                </div>
+                <span class="text-gray-700 font-medium group-hover:text-sky-700">QR PTT CHARGER</span>
+            </a>
+
+           
+        </div>
+ 
+        
+     </div>
+                                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                                        <div>
+                                        </div>
+  
+                                        <div>
+                                        </div>
+  
+                                        
+                                    </div>
+</div>
+                                    
+  
+    <!-- Footer -->
+    <div class="mt-8 text-center text-sm text-sky-600/70">
+        <p>&copy; 2026 SRT-NATTHAWAT</p>
+    </div>
+
+</body>
+</html>
