@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PBD Group - Technician Dashboard</title>
+    
+    <!-- Fonts: Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- SheetJS for Excel Import -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <!-- Canvas Confetti สำหรับเอฟเฟกต์พลุกระดาษ -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Prompt', 'sans-serif'] },
+                    colors: { brand: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 900: '#1e3a8a' } }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        .table-container::-webkit-scrollbar { height: 8px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .table-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        th { position: sticky; top: 0; background-color: #f8fafc; z-index: 10; }
+        th:first-child { left: 0; z-index: 20; background-color: #f8fafc; }
+        td:first-child { position: sticky; left: 0; background-color: #ffffff; z-index: 10; }
+        
+        .pin-dot { transition: all 0.2s; }
+        .pin-dot.active { background-color: #2563eb; transform: scale(1.2); }
+        
+        /* Podium Styles */
+        .podium-1 { z-index: 10; border-top: 4px solid #fbbf24; }
+        .podium-2 { z-index: 9; border-top: 4px solid #9ca3af; }
+        .podium-3 { z-index: 8; border-top: 4px solid #b45309; }
+        
+        /* Animation for Trip Banner */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(5deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        .animate-float-delayed { animation: float 7s ease-in-out infinite; animation-delay: 2s; }
+        
+        /* Airplane Fly Effect */
+        @keyframes flyPlane {
+            0% { transform: translate(-10vw, 110vh) rotate(25deg) scale(0.5); opacity: 0; }
+            10% { opacity: 1; }
+            100% { transform: translate(110vw, -30vh) rotate(25deg) scale(4); opacity: 1; }
+        }
+        .fly-plane-anim {
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 9999;
+            pointer-events: none;
+            animation: flyPlane 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            color: #10b981; /* emerald-500 */
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.3));
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen overflow-hidden flex font-sans">
+
+    <!-- ================= LOGIN SCREEN ================= -->
+    <div id="login-screen" class="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center transition-opacity duration-500">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm text-center">
+            <div class="w-16 h-16 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="ph ph-lock-key text-3xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-1">PBD Group</h2>
+            <p class="text-gray-500 text-sm mb-6">กรุณากรอกรหัส PIN 4 หลัก</p>
+            
+            <div class="flex justify-center gap-4 mb-8" id="pin-dots">
+                <div class="w-4 h-4 rounded-full bg-gray-200 pin-dot"></div>
+                <div class="w-4 h-4 rounded-full bg-gray-200 pin-dot"></div>
+                <div class="w-4 h-4 rounded-full bg-gray-200 pin-dot"></div>
+                <div class="w-4 h-4 rounded-full bg-gray-200 pin-dot"></div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 max-w-[220px] mx-auto text-xl">
+                <!-- Numpad injected via JS -->
+            </div>
+            <p id="login-error" class="text-red-500 text-sm mt-4 h-5 opacity-0 transition-opacity">รหัส PIN ไม่ถูกต้อง</p>
+            <p class="text-xs text-gray-400 mt-4">สามารถพิมพ์ตัวเลขจากคีย์บอร์ดได้</p>
+        </div>
+    </div>
+
+    <!-- ================= MAIN APP SHELL ================= -->
+    <div id="app-shell" class="flex w-full h-full opacity-0 pointer-events-none transition-opacity duration-500">
+        
+        <!-- Mobile Menu Overlay -->
+        <div id="mobile-menu-overlay" class="fixed inset-0 bg-gray-900/50 z-40 hidden opacity-0 transition-opacity md:hidden" onclick="toggleMobileMenu()"></div>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col transform -translate-x-full transition-transform duration-300 md:static md:translate-x-0">
+            <div class="h-16 flex items-center justify-between px-6 border-b border-gray-200 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="bg-brand-600 text-white p-1.5 rounded-lg"><i class="ph ph-wrench text-xl"></i></div>
+                    <h1 class="text-lg font-bold text-gray-900">PBD Group</h1>
+                </div>
+                <button onclick="toggleMobileMenu()" class="md:hidden text-gray-500 hover:text-gray-700">
+                    <i class="ph ph-x text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-4 flex items-center gap-3 border-b border-gray-100">
+                <div class="w-10 h-10 rounded-full bg-brand-100 border border-brand-200 flex items-center justify-center text-brand-600 font-bold" id="user-avatar">A</div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-900" id="user-name">User</p>
+                    <p class="text-xs text-gray-500" id="user-role">Role</p>
+                </div>
+            </div>
+
+            <nav class="flex-grow p-4 space-y-1">
+                <button onclick="navigate('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-brand-50 text-brand-600 transition-colors">
+                    <i class="ph ph-squares-four text-lg"></i> แดชบอร์ด
+                </button>
+                <button onclick="navigate('employee')" id="nav-employee" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                    <i class="ph ph-users text-lg"></i> จัดการพนักงาน
+                </button>
+                <button onclick="navigate('leaderboard')" id="nav-leaderboard" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                    <i class="ph ph-trophy text-lg"></i> จัดอันดับผลงาน
+                </button>
+                <button onclick="navigate('trip')" id="nav-trip" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                    <i class="ph ph-airplane-tilt text-lg"></i> แคมเปญท่องเที่ยว
+                </button>
+                <button onclick="navigate('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors hidden">
+                    <i class="ph ph-gear text-lg"></i> ตั้งค่าระบบ
+                </button>
+            </nav>
+            <div class="p-4 border-t border-gray-200">
+                <button onclick="logout()" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+                    <i class="ph ph-sign-out"></i> ออกจากระบบ
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col h-full overflow-hidden relative w-full">
+            <!-- Mobile Header -->
+            <header class="md:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-30 shrink-0">
+                <div class="flex items-center gap-2">
+                    <div class="bg-brand-600 text-white p-1 rounded-md"><i class="ph ph-wrench"></i></div>
+                    <span class="font-bold">PBD Group</span>
+                </div>
+                <button class="text-gray-500 p-2" onclick="toggleMobileMenu()"><i class="ph ph-list text-2xl"></i></button>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8" id="view-container">
+                
+                <!-- VIEW: DASHBOARD -->
+                <div id="view-dashboard" class="view-section">
+                    <div class="mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">ภาพรวมผลงานช่าง</h2>
+                        <p class="text-gray-500 text-sm mt-1">ข้อมูลสรุปยอดงานของทีมช่าง (กรองตามช่วงเวลา สาขา และพนักงาน)</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 mb-6">
+                        <div class="flex flex-col xl:flex-row gap-4 xl:items-end">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1 w-full">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">ตั้งแต่รอบ (From)</label>
+                                    <select id="filter-start" class="w-full bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" onchange="checkRangeSum()">
+                                        <option value="sum">สรุปผลรวม (sum)</option>
+                                        <option value="JAN26P1">ม.ค. 26 P1</option>
+                                        <option value="JAN26P2">ม.ค. 26 P2</option>
+                                        <option value="FEB26P1">ก.พ. 26 P1</option>
+                                        <option value="FEB26P2">ก.พ. 26 P2</option>
+                                        <option value="MAR26P1">มี.ค. 26 P1</option>
+                                        <option value="MAR26P2">มี.ค. 26 P2</option>
+                                        <option value="APR26P1">เม.ย. 26 P1</option>
+                                        <option value="APR26P2">เม.ย. 26 P2</option>
+                                        <option value="MAY26P1">พ.ค. 26 P1</option>
+                                        <option value="MAY26P2">พ.ค. 26 P2</option>
+                                        <option value="JUN26P1">มิ.ย. 26 P1</option>
+                                        <option value="JUN26P2">มิ.ย. 26 P2</option>
+                                        <option value="JUL26P1">ก.ค. 26 P1</option>
+                                        <option value="JUL26P2">ก.ค. 26 P2</option>
+                                        <option value="AUG26P1">ส.ค. 26 P1</option>
+                                        <option value="AUG26P2">ส.ค. 26 P2</option>
+                                        <option value="SEP26P1">ก.ย. 26 P1</option>
+                                        <option value="SEP26P2">ก.ย. 26 P2</option>
+                                        <option value="OCT26P1">ต.ค. 26 P1</option>
+                                        <option value="OCT26P2">ต.ค. 26 P2</option>
+                                        <option value="NOV26P1">พ.ย. 26 P1</option>
+                                        <option value="NOV26P2">พ.ย. 26 P2</option>
+                                        <option value="DEC26P1">ธ.ค. 26 P1</option>
+                                        <option value="DEC26P2">ธ.ค. 26 P2</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">ถึงรอบ (To)</label>
+                                    <select id="filter-end" class="w-full bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" disabled>
+                                        <option value="sum">สรุปผลรวม (sum)</option>
+                                        <option value="JAN26P1">ม.ค. 26 P1</option>
+                                        <option value="JAN26P2">ม.ค. 26 P2</option>
+                                        <option value="FEB26P1">ก.พ. 26 P1</option>
+                                        <option value="FEB26P2">ก.พ. 26 P2</option>
+                                        <option value="MAR26P1">มี.ค. 26 P1</option>
+                                        <option value="MAR26P2">มี.ค. 26 P2</option>
+                                        <option value="APR26P1">เม.ย. 26 P1</option>
+                                        <option value="APR26P2">เม.ย. 26 P2</option>
+                                        <option value="MAY26P1">พ.ค. 26 P1</option>
+                                        <option value="MAY26P2">พ.ค. 26 P2</option>
+                                        <option value="JUN26P1">มิ.ย. 26 P1</option>
+                                        <option value="JUN26P2">มิ.ย. 26 P2</option>
+                                        <option value="JUL26P1">ก.ค. 26 P1</option>
+                                        <option value="JUL26P2">ก.ค. 26 P2</option>
+                                        <option value="AUG26P1">ส.ค. 26 P1</option>
+                                        <option value="AUG26P2">ส.ค. 26 P2</option>
+                                        <option value="SEP26P1">ก.ย. 26 P1</option>
+                                        <option value="SEP26P2">ก.ย. 26 P2</option>
+                                        <option value="OCT26P1">ต.ค. 26 P1</option>
+                                        <option value="OCT26P2">ต.ค. 26 P2</option>
+                                        <option value="NOV26P1">พ.ย. 26 P1</option>
+                                        <option value="NOV26P2">พ.ย. 26 P2</option>
+                                        <option value="DEC26P1">ธ.ค. 26 P1</option>
+                                        <option value="DEC26P2">ธ.ค. 26 P2</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">สาขา</label>
+                                    <select id="filter-branch" class="w-full bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" onchange="updateEmpDropdown(); renderDashboard();">
+                                        <option value="all">ทุกสาขา</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">พนักงาน</label>
+                                    <select id="filter-emp" class="w-full bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" onchange="renderDashboard()">
+                                        <option value="all">ทุกคน</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2 w-full xl:w-auto shrink-0 mt-4 xl:mt-0">
+                                <button onclick="applyDashboardFilters()" class="flex-1 xl:flex-none bg-brand-600 border border-brand-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-brand-700 flex items-center justify-center gap-2 shadow-sm transition" title="ดึงข้อมูลและคำนวณตามช่วงเวลาที่เลือก">
+                                    <i class="ph ph-funnel text-lg" id="sync-icon-dash"></i> 
+                                    <span>ดึงข้อมูล</span>
+                                </button>
+                                <button onclick="syncAllData()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50 flex items-center justify-center shadow-sm transition" title="ซิงค์ข้อมูลใหม่ทั้งหมดจาก Sheet">
+                                    <i class="ph ph-arrows-clockwise text-brand-600 text-lg" id="sync-all-icon"></i>
+                                </button>
+                                <button onclick="exportDashboardToExcel()" class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2.5 rounded-lg text-sm hover:bg-emerald-100 flex items-center justify-center shadow-sm transition" title="ส่งออกข้อมูลตารางเป็น Excel">
+                                    <i class="ph ph-file-xls text-lg"></i> <span class="hidden md:inline ml-2 font-medium">Export</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="sync-status" class="text-[10px] text-gray-400 mt-3 text-right">สถานะ: รอการเชื่อมต่อ...</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative overflow-hidden group">
+                            <div class="absolute right-[-10px] top-[-10px] opacity-5 text-gray-900 group-hover:scale-110 transition-transform"><i class="ph-fill ph-wallet text-8xl"></i></div>
+                            <p class="text-sm text-gray-500 relative z-10">รายได้ทั้งหมดรวม</p>
+                            <h3 class="text-2xl font-bold text-gray-900 mt-1 relative z-10" id="kpi-total-income">฿0</h3>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative overflow-hidden group">
+                            <div class="absolute right-[-10px] top-[-10px] opacity-5 text-brand-900 group-hover:scale-110 transition-transform"><i class="ph-fill ph-target text-8xl"></i></div>
+                            <p class="text-sm text-gray-500 relative z-10 flex justify-between">ทำงานสำเร็จ / ตั้งเป้า <span id="kpi-percent" class="font-bold text-brand-600">0%</span></p>
+                            <h3 class="text-2xl font-bold mt-1 relative z-10"><span id="kpi-achieved" class="text-brand-600">0</span> <span class="text-gray-400 text-lg">/ <span id="kpi-target">0</span></span></h3>
+                            <div class="w-full bg-gray-100 rounded-full h-1.5 mt-3 relative z-10 overflow-hidden">
+                                <div id="kpi-progress" class="bg-brand-500 h-1.5 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative overflow-hidden group">
+                            <div class="absolute right-[-10px] top-[-10px] opacity-5 text-purple-900 group-hover:scale-110 transition-transform"><i class="ph-fill ph-lightning text-8xl"></i></div>
+                            <p class="text-sm text-gray-500 relative z-10">พ้อยรวมทั้งทีม</p>
+                            <h3 class="text-2xl font-bold text-purple-600 mt-1 relative z-10" id="kpi-total-points">0</h3>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative overflow-hidden group">
+                            <div class="absolute right-[-10px] top-[-10px] opacity-5 text-orange-900 group-hover:scale-110 transition-transform"><i class="ph-fill ph-coins text-8xl"></i></div>
+                            <p class="text-sm text-gray-500 relative z-10">ค่าคอมมิชชั่นรวม</p>
+                            <h3 class="text-2xl font-bold text-orange-500 mt-1 relative z-10" id="kpi-total-comm">฿0</h3>
+                        </div>
+                        <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-sm border border-yellow-200 p-5 relative overflow-hidden">
+                            <div class="absolute right-0 bottom-0 opacity-20 text-yellow-500"><i class="ph-fill ph-star text-6xl transform translate-x-2 translate-y-2"></i></div>
+                            <p class="text-sm text-yellow-800 font-bold relative z-10 flex items-center gap-1"><i class="ph-fill ph-medal text-lg"></i> ดาวเด่น (MVP)</p>
+                            <div id="dashboard-mvp" class="mt-2 relative z-10">
+                                <span class="text-gray-400 text-sm">ยังไม่มีข้อมูล</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2">
+                            <h3 class="text-md font-bold mb-4">เปรียบเทียบเป้าหมาย</h3>
+                            <div class="h-64"><canvas id="performanceChart"></canvas></div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                            <h3 class="text-md font-bold mb-4">สัดส่วนประเภทงาน</h3>
+                            <div class="h-64 flex justify-center"><canvas id="jobTypeChart"></canvas></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b border-gray-200">
+                            <h3 class="font-bold">รายละเอียดรายบุคคล</h3>
+                        </div>
+                        <div class="overflow-x-auto table-container max-h-[400px]">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm whitespace-nowrap">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-700 tracking-wider border-r border-gray-200">ชื่อช่าง</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-700 tracking-wider">รหัสพนักงาน</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-700 tracking-wider">สาขา</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider">ตั้งเป้า</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider">ทำได้</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider">พลาดเป้า</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider border-l border-gray-200">ติดตั้งใหม่</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider">ในประกัน</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider">หมดประกัน/ค่าบริการ</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider border-l border-gray-200">ค่าอะไหล่</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider">ย้ายมีค่าบริการ</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider">เก็บค่างวด</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider border-l border-gray-200 bg-blue-50">ยอดเงิน</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider bg-blue-50">รวมยอดเงิน(สาขา)</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-purple-600 tracking-wider border-l border-gray-200">พ้อย</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider">งานที่ไม่คิดค่าคอม</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-orange-600 tracking-wider bg-orange-50">ค่าคอมที่ได้</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-gray-700 tracking-wider border-l border-gray-200">เงินเดือน</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-green-700 tracking-wider bg-green-50 border-l border-green-100">รายได้ทั้งหมด</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: EMPLOYEE MANAGEMENT -->
+                <div id="view-employee" class="view-section hidden">
+                    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900">จัดการพนักงาน</h2>
+                            <p class="text-gray-500 text-sm mt-1">เพิ่ม แก้ไข ลบ และกำหนดสิทธิ์ (Admin จัดการได้ทั้งหมด / Manager จัดการได้เฉพาะสาขาตัวเอง)</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <!-- Hidden File Input for Excel -->
+                            <input type="file" id="excel-upload" accept=".xlsx, .xls" class="hidden" onchange="handleExcelImport(event)">
+                            <button onclick="document.getElementById('excel-upload').click()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center gap-2">
+                                <i class="ph ph-file-xls text-green-600"></i> นำเข้า Excel
+                            </button>
+                            <button onclick="openEmployeeModal()" class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 flex items-center gap-2">
+                                <i class="ph ph-plus"></i> เพิ่มพนักงาน
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm whitespace-nowrap">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left font-semibold text-gray-700">รหัส</th>
+                                        <th class="px-6 py-3 text-left font-semibold text-gray-700">ชื่อ-นามสกุล</th>
+                                        <th class="px-6 py-3 text-left font-semibold text-gray-700">สาขา</th>
+                                        <th class="px-6 py-3 text-left font-semibold text-gray-700">ตำแหน่ง / สิทธิ์</th>
+                                        <th class="px-6 py-3 text-left font-semibold text-gray-700">รหัส PIN</th>
+                                        <th class="px-6 py-3 text-right font-semibold text-gray-700">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="employee-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: LEADERBOARD -->
+                <div id="view-leaderboard" class="view-section hidden">
+                    <div class="text-center mb-10 relative">
+                        <div class="inline-block bg-gradient-to-r from-orange-400 to-yellow-500 text-white px-6 py-2 rounded-full text-sm font-bold mb-4 shadow-lg animate-bounce shadow-orange-500/30">
+                            <i class="ph-fill ph-star"></i> PBD Awards 2026
+                        </div>
+                        <h2 class="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 via-orange-500 to-red-500 mb-3 drop-shadow-sm">ประกาศรางวัลผลงานยอดเยี่ยม</h2>
+                        
+                        <div class="mt-4 flex justify-center items-center gap-2">
+                            <span class="text-gray-500 text-sm hidden sm:inline">เลือกช่วงเวลา:</span>
+                            <select id="leaderboard-half-select" onchange="changeLeaderboardHalf(this.value)" class="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm">
+                                <option value="1">ครึ่งปีแรก (ม.ค. - มิ.ย.)</option>
+                                <option value="2">ครึ่งปีหลัง (ก.ค. - ธ.ค.)</option>
+                            </select>
+                            <button onclick="refreshLeaderboardData()" id="btn-sync-lb" class="bg-white border border-gray-300 text-gray-700 px-2 py-1.5 rounded-lg hover:bg-gray-50 shadow-sm transition" title="ดึงข้อมูลคำนวณใหม่">
+                                <i class="ph ph-arrows-clockwise text-brand-600" id="sync-icon-lb"></i>
+                            </button>
+                        </div>
+                        <p class="text-gray-500 mt-2 text-sm font-medium">จัดอันดับจากยอดรวม "ทำได้" ทั้งหมดในรอบครึ่งปี</p>
+                    </div>
+
+                    <!-- Podium -->
+                    <div class="flex justify-center items-end gap-2 sm:gap-6 mb-12 h-[320px] px-4" id="podium-container">
+                        <!-- Injected via JS -->
+                    </div>
+
+                    <!-- Ranking List -->
+                    <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-700">อันดับที่ 4 เป็นต้นไป</div>
+                        <ul class="divide-y divide-gray-100" id="ranking-list">
+                            <!-- Injected via JS -->
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- VIEW: TRIP CAMPAIGN (INDIVIDUAL) -->
+                <div id="view-trip" class="view-section hidden">
+                    <!-- Banner -->
+                    <div id="trip-banner-container" class="rounded-3xl p-8 sm:p-10 text-white mb-8 relative overflow-hidden shadow-2xl bg-cover bg-center">
+                        
+                        <!-- Dark overlay and Gradient for text readability -->
+                        <div class="absolute inset-0 bg-gray-900/50 mix-blend-multiply"></div>
+                        <div class="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-indigo-900/60 to-transparent"></div>
+
+                        <!-- Background Decorations -->
+                        <div class="absolute right-0 bottom-0 opacity-20 transform translate-x-1/4 translate-y-1/4 z-0">
+                            <i class="ph-fill ph-airplane-tilt text-9xl"></i>
+                        </div>
+                        <i class="ph-fill ph-cloud text-white/10 text-6xl absolute top-4 left-10 animate-float z-0"></i>
+                        <i class="ph-fill ph-cloud text-white/10 text-8xl absolute bottom-2 right-1/4 animate-float-delayed z-0"></i>
+                        <i class="ph-fill ph-flower-lotus text-pink-300/30 text-5xl absolute top-8 right-1/3 animate-float z-0" style="animation-delay: 1s;"></i>
+                        <i class="ph-fill ph-sparkle text-yellow-300/40 text-4xl absolute bottom-10 left-1/3 animate-float-delayed z-0"></i>
+                        
+                        <div class="relative z-10 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+                            <div>
+                                <span class="inline-flex items-center gap-1 bg-white/20 text-white px-4 py-1.5 rounded-full text-xs font-bold tracking-widest backdrop-blur-md border border-white/30 shadow-sm">
+                                    <i class="ph-fill ph-ticket"></i> BOARDING PASS
+                                </span>
+                                <h2 class="text-3xl sm:text-5xl font-extrabold mt-4 mb-2 drop-shadow-lg text-white" id="trip-banner-title">ตะลุยแดนอาทิตย์อุทัย (Japan Trip 2026)</h2>
+                                <p class="text-blue-50 max-w-xl text-sm sm:text-base leading-relaxed text-shadow-md">เตรียมแพ็กกระเป๋าให้พร้อม! สะสมพ้อยส่วนตัวให้ถึงเป้าหมายภายในระยะเวลาที่กำหนด เพื่อปลดล็อกตั๋วเครื่องบินสู่ปลายทางในฝัน</p>
+                                <div class="mt-6 flex flex-wrap gap-3 sm:gap-4 text-sm font-medium">
+                                    <div class="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20"><i class="ph ph-calendar-blank text-lg text-blue-300"></i> <span id="trip-banner-date">1 ม.ค. 26 - 31 ธ.ค. 26</span></div>
+                                    <div class="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20"><i class="ph ph-target text-lg text-red-300"></i> เป้าหมาย <span id="trip-banner-target" class="text-lg font-bold text-white drop-shadow-md">500</span> พ้อย/คน</div>
+                                </div>
+                            </div>
+                            <div class="shrink-0 flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 bg-white/10 backdrop-blur-md rounded-full border border-white/30 shadow-2xl">
+                                <i class="ph-fill ph-globe-hemisphere-east text-5xl sm:text-7xl text-white animate-pulse drop-shadow-md"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Individual Progress Grid -->
+                    <div class="flex justify-between items-end mb-4 px-1">
+                        <h3 class="font-bold text-xl text-gray-900">ผู้โดยสาร (Passengers)</h3>
+                        <div class="text-sm text-gray-500 font-medium">สถานะการเก็บพ้อย</div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" id="trip-individual-list">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+
+                <!-- VIEW: SYSTEM SETTINGS -->
+                <div id="view-settings" class="view-section hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900">ตั้งค่าระบบ (System Settings)</h2>
+                        <p class="text-gray-500 text-sm mt-1">ตั้งค่าแคมเปญและเป้าหมายต่างๆ (เฉพาะ Admin)</p>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-2xl">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4 border-b pb-2">ตั้งค่าแคมเปญท่องเที่ยว</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อทริปท่องเที่ยว</label>
+                                <input type="text" id="set-trip-name" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="เช่น Japan Trip 2026">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">ภาพพื้นหลังทริปท่องเที่ยว (Image URL)</label>
+                                <input type="text" id="set-trip-image" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="https://ตัวอย่างลิงก์รูปภาพ.com/image.jpg">
+                                <p class="text-[11px] text-gray-400 mt-1">*เว้นว่างไว้หากต้องการใช้พื้นหลังสีน้ำเงินแบบเดิม</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">เป้าหมายพ้อยที่ต้องทำได้ (ต่อคน)</label>
+                                <input type="number" id="set-trip-target" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="เช่น 1000">
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น</label>
+                                    <input type="date" id="set-trip-start" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
+                                    <input type="date" id="set-trip-end" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none">
+                                </div>
+                            </div>
+                            <div class="pt-4 flex justify-end">
+                                <button onclick="saveSettings()" class="bg-brand-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-brand-700 transition">บันทึกการตั้งค่า</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= MODALS ================= -->
+    <!-- Employee Form Modal -->
+    <div id="modal-employee" class="fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center hidden opacity-0 transition-opacity p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform scale-95 transition-transform max-h-full flex flex-col" id="modal-employee-content">
+            <div class="p-5 border-b border-gray-200 flex justify-between items-center bg-gray-50 shrink-0">
+                <h3 class="font-bold text-lg" id="modal-emp-title">เพิ่มพนักงาน</h3>
+                <button onclick="closeEmployeeModal()" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="p-5 space-y-4 overflow-y-auto">
+                <input type="hidden" id="emp-id">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="col-span-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">รหัสพนักงาน</label>
+                        <input type="text" id="emp-code" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="EMP001">
+                    </div>
+                    <div class="col-span-1 sm:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>
+                        <input type="text" id="emp-name" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="ระบุชื่อพนักงาน">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">สาขา</label>
+                    <input type="text" id="emp-branch" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="เช่น สุราษฎร์ธานี">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">รหัส PIN (4 หลัก)</label>
+                        <input type="text" id="emp-pin" maxlength="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none text-center tracking-widest font-mono" placeholder="0000">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ตำแหน่ง / สิทธิ์</label>
+                        <select id="emp-role" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="tech">ช่างเทคนิค</option>
+                            <option value="head_tech">หัวหน้าช่าง</option>
+                            <option value="manager">ผู้จัดการสาขา</option>
+                            <option value="admin">ผู้ดูแลระบบ (Admin)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 shrink-0">
+                <button onclick="closeEmployeeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-200">ยกเลิก</button>
+                <button onclick="saveEmployee()" class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-brand-600 hover:bg-brand-700">บันทึกข้อมูล</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert/Confirm Modal -->
+    <div id="modal-alert" class="fixed inset-0 bg-gray-900/50 z-[60] flex items-center justify-center hidden opacity-0 transition-opacity">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm text-center">
+            <div id="alert-icon" class="mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4"></div>
+            <h3 class="font-bold text-lg mb-2" id="alert-title">Title</h3>
+            <p class="text-sm text-gray-500 mb-6" id="alert-msg">Message</p>
+            <div class="flex justify-center gap-2" id="alert-buttons">
+                <!-- Buttons injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT ================= -->
+    <script>
+        // --- 1. STATE & DATA ---
+        let state = {
+            currentUser: null,
+            currentView: 'dashboard',
+            inputPin: '',
+            leaderboardHalf: 1,
+            hasLoadedLeaderboard: false
+        };
+
+        // Dashboard filtering data
+        let dashboardViewData = [];
+        const periodsList = ['JAN26P1', 'JAN26P2', 'FEB26P1', 'FEB26P2', 'MAR26P1', 'MAR26P2', 'APR26P1', 'APR26P2', 'MAY26P1', 'MAY26P2', 'JUN26P1', 'JUN26P2', 'JUL26P1', 'JUL26P2', 'AUG26P1', 'AUG26P2', 'SEP26P1', 'SEP26P2', 'OCT26P1', 'OCT26P2', 'NOV26P1', 'NOV26P2', 'DEC26P1', 'DEC26P2'];
+
+        // ==========================================
+        // 📌 ตั้งค่าการเชื่อมต่อ Google Sheet ที่นี่
+        // ==========================================
+        const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1qfVyPHZZlhfzLO30PofzFKFiwa2fNuf_haevZCeECV0/edit?gid=1718120080#gid=1718120080'; 
+        let currentSheetTab = 'sum'; 
+        // ==========================================
+
+        // Trip Settings State
+        let tripSettings = {
+            name: "ตะลุยแดนอาทิตย์อุทัย (Japan Trip 2026)",
+            targetPoints: 500,
+            startDate: "2026-01-01",
+            endDate: "2026-12-31",
+            imageUrl: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=2070&auto=format&fit=crop" // ค่าเริ่มต้นภาพญี่ปุ่นสวยๆ
+        };
+
+        // Data Storage
+        let employees = [];
+
+        // Mockup Data
+        const mockEmployees = [
+            { id: 1, empCode: "ADMIN01", name: "คุณณัฐวรรธน์", branch: "สำนักงานใหญ่", role: "admin", pin: "1234", target: 0, achieved: 0, newInstall: 0, warranty: 0, outWarranty: 0, partCost: 0, amount: 0, points: 0, commission: 0, totalIncome: 35000, leaderboardPoints: 0 },
+            { id: 100, empCode: "MGR01", name: "ผู้จัดการ เอก", branch: "สุราษฎร์ธานี", role: "manager", pin: "5555", target: 0, achieved: 0, newInstall: 0, warranty: 0, outWarranty: 0, partCost: 0, amount: 0, points: 0, commission: 0, totalIncome: 45000, leaderboardPoints: 0 },
+            { id: 101, empCode: "T001", name: "สมชาย ใจดี", branch: "สุราษฎร์ธานี", role: "head_tech", pin: "0000", target: 50, achieved: 55, newInstall: 30, warranty: 10, outWarranty: 15, partCost: 1500, amount: 15000, points: 150, commission: 3500, totalIncome: 21500, leaderboardPoints: 250 },
+            { id: 102, empCode: "T002", name: "วิชัย รุ่งเรือง", branch: "สุราษฎร์ธานี", role: "tech", pin: "0000", target: 40, achieved: 42, newInstall: 25, warranty: 5, outWarranty: 12, partCost: 800, amount: 18000, points: 120, commission: 4200, totalIncome: 19200, leaderboardPoints: 180 },
+            { id: 103, empCode: "MGR02", name: "ผู้จัดการ นุ้ย", branch: "นครศรีธรรมราช", role: "manager", pin: "8888", target: 0, achieved: 0, newInstall: 0, warranty: 0, outWarranty: 0, partCost: 0, amount: 0, points: 0, commission: 0, totalIncome: 42000, leaderboardPoints: 0 },
+            { id: 104, empCode: "T003", name: "ธนาวุฒิ สิงห์คำ", branch: "นครศรีธรรมราช", role: "tech", pin: "0000", target: 45, achieved: 50, newInstall: 30, warranty: 10, outWarranty: 10, partCost: 2000, amount: 22000, points: 180, commission: 5000, totalIncome: 23000, leaderboardPoints: 210 },
+            { id: 105, empCode: "T004", name: "นพดล มือทอง", branch: "นครศรีธรรมราช", role: "tech", pin: "0000", target: 35, achieved: 28, newInstall: 12, warranty: 8, outWarranty: 8, partCost: 1200, amount: 13000, points: 90, commission: 1200, totalIncome: 16200, leaderboardPoints: 110 },
+            { id: 106, empCode: "T005", name: "เอกพล ช่างทอง", branch: "ภูเก็ต", role: "tech", pin: "0000", target: 40, achieved: 48, newInstall: 28, warranty: 5, outWarranty: 15, partCost: 1000, amount: 20000, points: 160, commission: 4500, totalIncome: 22500, leaderboardPoints: 190 }
+        ];
+
+        let charts = {};
+        
+        // --- 1.5 GOOGLE SHEETS FETCHING ---
+        let lastSyncError = "";
+
+        const updateSyncStatus = (isSuccess, text) => {
+            const statusEl = document.getElementById('sync-status');
+            if(statusEl) {
+                statusEl.innerText = text;
+                statusEl.className = isSuccess ? 'text-[10px] text-green-500 mt-1 text-right' : 'text-[10px] text-orange-500 mt-1 text-right';
+            }
+        };
+
+        const getMonthsBetweenDates = (startDate, endDate) => {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const months = [];
+            const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+            
+            let current = new Date(start.getFullYear(), start.getMonth(), 1);
+            const endLimit = new Date(end.getFullYear(), end.getMonth(), 1);
+
+            while (current <= endLimit) {
+                const monthStr = monthNames[current.getMonth()] + current.getFullYear().toString().slice(-2);
+                months.push(monthStr + "P1");
+                months.push(monthStr + "P2");
+                current.setMonth(current.getMonth() + 1);
+            }
+            return months;
+        };
+
+        const fetchCsvFromSheet = async (tabName) => {
+            const match = GOOGLE_SHEET_URL.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            if (!match) throw new Error("รูปแบบลิงก์ URL ไม่ถูกต้อง");
+            const extractedId = match[1];
+            const encodedSheetName = encodeURIComponent(tabName);
+            const url = `https://docs.google.com/spreadsheets/d/${extractedId}/gviz/tq?tqx=out:csv&sheet=${encodedSheetName}`;
+            
+            let response;
+            try {
+                response = await fetch(url);
+            } catch (networkError) {
+                try {
+                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                    response = await fetch(proxyUrl);
+                    if(!response.ok) throw new Error("Proxy 1 failed");
+                } catch (proxyError1) {
+                    try {
+                        const proxyUrl2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                        response = await fetch(proxyUrl2);
+                    } catch (proxyError2) {
+                        throw new Error("การเชื่อมต่อถูกปฏิเสธอย่างสมบูรณ์ (อาจเกิดจากข้อจำกัดสิทธิ์ หรือชื่อแท็บไม่ถูกต้อง)");
+                    }
+                }
+            }
+            
+            if (!response.ok) throw new Error(`Network response was not ok (Status: ${response.status})`);
+            const csvText = await response.text();
+            
+            if(csvText.includes('<!DOCTYPE html>') || csvText.includes('<html')) {
+                throw new Error("ระบบไม่สามารถเข้าถึงข้อมูลได้ (ตรวจสอบว่าแชร์แบบ 'ทุกคนที่มีลิงก์' แล้วหรือไม่)");
+            }
+            return csvText;
+        };
+
+        const fetchSheetTabForTrip = async (tabName) => {
+            try {
+                const csvText = await fetchCsvFromSheet(tabName);
+                const wb = XLSX.read(csvText, {type: 'string'});
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                return XLSX.utils.sheet_to_json(ws);
+            } catch(e) {
+                return []; 
+            }
+        };
+
+        const parseSheetDataToEmployees = (data) => {
+            let fetchedEmployees = [];
+            data.forEach((row, index) => {
+                const name = row['ชื่อช่าง'] || row['ชื่อ'] || row['Name'];
+                if(name) {
+                    const rawRole = String(row['สิทธิ์'] || row['Role'] || row['ตำแหน่ง'] || '').toLowerCase();
+                    let roleMap = 'tech';
+                    if (rawRole.includes('admin') || rawRole.includes('ผู้ดูแล') || rawRole.includes('แอดมิน')) roleMap = 'admin';
+                    else if (rawRole.includes('manager') || rawRole.includes('ผู้จัดการ') || rawRole.includes('ผจก')) roleMap = 'manager';
+                    else if (rawRole.includes('head') || rawRole.includes('หัวหน้า')) roleMap = 'head_tech';
+
+                    let rawPin = row['PIN'] !== undefined ? row['PIN'] : 
+                                (row['Pin'] !== undefined ? row['Pin'] : 
+                                (row['pin'] !== undefined ? row['pin'] : 
+                                (row['รหัส'] !== undefined ? row['รหัส'] : '0000')));
+
+                    const rawEmpCode = row['รหัสพนักงาน'] !== undefined ? row['รหัสพนักงาน'] : (row['EmpCode'] !== undefined ? row['EmpCode'] : `EMP${index+1}`);
+
+                    fetchedEmployees.push({
+                        id: index + 2,
+                        empCode: String(rawEmpCode),
+                        name: String(name),
+                        branch: String(row['สาขา'] || row['Branch'] || 'ไม่ระบุ'),
+                        role: roleMap,
+                        pin: String(rawPin).padStart(4, '0'),
+                        target: Number(row['ตั้งเป้า'] || 0),
+                        achieved: Number(row['ทำได้'] || 0),
+                        newInstall: Number(row['ติดตั้งใหม่'] || 0),
+                        warranty: Number(row['ในประกัน'] || 0),
+                        outWarranty: Number(row['หมดประกัน'] || row['หมดประกัน/ค่าบริการ'] || 0),
+                        partCost: Number(row['ค่าอะไหล่'] || 0),
+                        relocate: Number(row['ย้ายมีค่าบริการ'] || 0),
+                        collectInstallment: Number(row['เก็บค่างวด'] || 0),
+                        amount: Number(row['ยอดเงิน'] || 0),
+                        branchTotal: Number(row['รวมยอดเงิน(สาขา)'] || row['รวมยอดเงิน (สาขา)'] || 0),
+                        points: Number(row['พ้อย'] || 0),
+                        nonCommWork: Number(row['งานที่ไม่คิดค่าคอม'] || 0),
+                        commission: Number(row['ค่าคอมที่ได้'] || 0),
+                        salary: Number(row['เงินเดือน'] || 0),
+                        totalIncome: Number(row['รายได้ทั้งหมด'] || 0),
+                        tripPoints: 0,
+                        leaderboardPoints: 0
+                    });
+                }
+            });
+            return fetchedEmployees;
+        };
+
+        const fetchGoogleSheetData = async () => {
+            if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL.trim() === '') {
+                employees = [...mockEmployees];
+                lastSyncError = "ยังไม่ได้ระบุลิงก์ GOOGLE_SHEET_URL";
+                updateSyncStatus(false, "ใช้ข้อมูลจำลอง (ยังไม่ระบุลิงก์)");
+                return false;
+            }
+            try {
+                const data = await fetchSheetTabForTrip('sum'); // Default fetch 'sum' as base structure
+                let fetchedEmployees = parseSheetDataToEmployees(data);
+                
+                if(fetchedEmployees.length > 0) {
+                    if (!fetchedEmployees.some(e => e.role === 'admin')) {
+                        fetchedEmployees.unshift(mockEmployees[0]);
+                    }
+                    employees = fetchedEmployees;
+                    
+                    if (dashboardViewData.length === 0) {
+                        dashboardViewData = JSON.parse(JSON.stringify(employees));
+                    }
+                    
+                    lastSyncError = "";
+                    updateSyncStatus(true, `เชื่อมต่อข้อมูลสำเร็จ เมื่อ ` + new Date().toLocaleTimeString('th-TH'));
+                    return true;
+                } else {
+                    throw new Error(`ไม่พบข้อมูลในแท็บชื่อ sum`);
+                }
+            } catch (error) {
+                console.warn("ระบบเปลี่ยนไปใช้ข้อมูลจำลองเนื่องจาก:", error.message);
+                lastSyncError = error.message;
+                employees = [...mockEmployees];
+                updateSyncStatus(false, "สถานะ: ใช้ข้อมูลจำลอง (ดึงข้อมูลล้มเหลว)");
+                return false;
+            }
+        };
+
+        const calculateTripPoints = async () => {
+            if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL.trim() === '') return;
+            const months = getMonthsBetweenDates(tripSettings.startDate, tripSettings.endDate);
+            let employeeTripPoints = {};
+            
+            for (const m of months) {
+                const data = await fetchSheetTabForTrip(m);
+                if (data && data.length > 0) {
+                    data.forEach(row => {
+                        const rawEmpCode = row['รหัสพนักงาน'] !== undefined ? row['รหัสพนักงาน'] : row['EmpCode'];
+                        const points = Number(row['ทำได้'] || row['Achieved'] || 0);
+                        if (rawEmpCode !== undefined && !isNaN(points)) {
+                            const empCode = String(rawEmpCode);
+                            employeeTripPoints[empCode] = (employeeTripPoints[empCode] || 0) + points;
+                        }
+                    });
+                }
+            }
+            
+            employees = employees.map(emp => ({
+                ...emp,
+                tripPoints: employeeTripPoints[emp.empCode] || 0
+            }));
+        };
+
+        const calculateLeaderboardPoints = async (half) => {
+            if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL.trim() === '') return;
+            
+            const tabsH1 = ['JAN26P1', 'JAN26P2', 'FEB26P1', 'FEB26P2', 'MAR26P1', 'MAR26P2', 'APR26P1', 'APR26P2', 'MAY26P1', 'MAY26P2', 'JUN26P1', 'JUN26P2'];
+            const tabsH2 = ['JUL26P1', 'JUL26P2', 'AUG26P1', 'AUG26P2', 'SEP26P1', 'SEP26P2', 'OCT26P1', 'OCT26P2', 'NOV26P1', 'NOV26P2', 'DEC26P1', 'DEC26P2'];
+            
+            const targetTabs = half === 1 ? tabsH1 : tabsH2;
+            let employeeLbPoints = {};
+            
+            for (const tab of targetTabs) {
+                const data = await fetchSheetTabForTrip(tab);
+                if (data && data.length > 0) {
+                    data.forEach(row => {
+                        const rawEmpCode = row['รหัสพนักงาน'] !== undefined ? row['รหัสพนักงาน'] : row['EmpCode'];
+                        const achieved = Number(row['ทำได้'] || row['Achieved'] || 0);
+                        if (rawEmpCode !== undefined && !isNaN(achieved)) {
+                            const empCode = String(rawEmpCode);
+                            employeeLbPoints[empCode] = (employeeLbPoints[empCode] || 0) + achieved;
+                        }
+                    });
+                }
+            }
+            
+            employees = employees.map(emp => ({
+                ...emp,
+                leaderboardPoints: employeeLbPoints[emp.empCode] || 0
+            }));
+        };
+
+        let isFetchingLeaderboard = false;
+        
+        const refreshLeaderboardData = async () => {
+            if (isFetchingLeaderboard) return;
+            isFetchingLeaderboard = true;
+            
+            const icon = document.getElementById('sync-icon-lb');
+            if (icon) icon.classList.add('animate-spin');
+            
+            const half = parseInt(document.getElementById('leaderboard-half-select').value) || 1;
+            await calculateLeaderboardPoints(half);
+            
+            isFetchingLeaderboard = false;
+            if (icon) icon.classList.remove('animate-spin');
+            
+            renderLeaderboard();
+        };
+
+        const changeLeaderboardHalf = async (val) => {
+            state.leaderboardHalf = parseInt(val);
+            document.getElementById('podium-container').innerHTML = `
+                <div class="text-center text-brand-600 py-10 w-full flex flex-col items-center justify-center">
+                    <i class="ph ph-spinner animate-spin text-4xl mb-3"></i>
+                    <span class="font-medium">กำลังรวบรวมข้อมูลตลอด 6 เดือน...</span>
+                </div>`;
+            document.getElementById('ranking-list').innerHTML = '';
+            
+            await refreshLeaderboardData();
+        };
+
+        // --- DASHBOARD FILTERS & AGGREGATION ---
+        const checkRangeSum = () => {
+            const start = document.getElementById('filter-start').value;
+            const endSelect = document.getElementById('filter-end');
+            if (start === 'sum') {
+                endSelect.value = 'sum';
+                endSelect.disabled = true;
+            } else {
+                endSelect.disabled = false;
+                if (endSelect.value === 'sum') endSelect.value = start;
+                const startIdx = periodsList.indexOf(start);
+                const endIdx = periodsList.indexOf(endSelect.value);
+                if (endIdx < startIdx) endSelect.value = start;
+            }
+        };
+
+        const populateFilterDropdowns = () => {
+            let data = dashboardViewData;
+            if (state.currentUser) {
+                if (state.currentUser.role === 'manager') {
+                    data = data.filter(e => e.branch === state.currentUser.branch);
+                } else if (state.currentUser.role === 'tech' || state.currentUser.role === 'head_tech') {
+                    data = data.filter(e => e.empCode === state.currentUser.empCode);
+                }
+            }
+
+            const branchSelect = document.getElementById('filter-branch');
+            const currentBranch = branchSelect.value;
+            
+            const branches = [...new Set(data.map(e => e.branch))].filter(Boolean);
+            branchSelect.innerHTML = `<option value="all">ทุกสาขา</option>` + branches.map(b => `<option value="${b}">${b}</option>`).join('');
+            
+            if (branches.includes(currentBranch)) {
+                branchSelect.value = currentBranch;
+            } else {
+                branchSelect.value = 'all';
+            }
+
+            if (state.currentUser && state.currentUser.role === 'manager') {
+                branchSelect.value = state.currentUser.branch;
+                branchSelect.disabled = true;
+            } else if (state.currentUser && (state.currentUser.role === 'tech' || state.currentUser.role === 'head_tech')) {
+                branchSelect.value = state.currentUser.branch;
+                branchSelect.disabled = true;
+                document.getElementById('filter-emp').disabled = true;
+            }
+
+            updateEmpDropdown();
+        };
+
+        const updateEmpDropdown = () => {
+            const branch = document.getElementById('filter-branch').value;
+            const empSelect = document.getElementById('filter-emp');
+            const currentEmp = empSelect.value;
+            
+            let data = dashboardViewData;
+            if (branch !== 'all') {
+                data = data.filter(e => String(e.branch) === String(branch));
+            }
+            if (state.currentUser && (state.currentUser.role === 'tech' || state.currentUser.role === 'head_tech')) {
+                data = data.filter(e => String(e.empCode) === String(state.currentUser.empCode));
+            }
+            
+            const uniqueEmps = [];
+            const empSet = new Set();
+            data.forEach(e => {
+                if(!empSet.has(String(e.empCode)) && (e.role === 'tech' || e.role === 'head_tech')) {
+                    empSet.add(String(e.empCode));
+                    uniqueEmps.push(e);
+                }
+            });
+            
+            empSelect.innerHTML = `<option value="all">ทุกคน</option>` + uniqueEmps.map(e => `<option value="${e.empCode}">${e.name}</option>`).join('');
+            
+            if (empSet.has(String(currentEmp))) {
+                empSelect.value = currentEmp;
+            } else if (state.currentUser && (state.currentUser.role === 'tech' || state.currentUser.role === 'head_tech')) {
+                empSelect.value = String(state.currentUser.empCode);
+            } else {
+                empSelect.value = 'all';
+            }
+        };
+
+        const accumulateData = (acc, newData) => {
+            newData.forEach(emp => {
+                if (!acc[emp.empCode]) {
+                    acc[emp.empCode] = JSON.parse(JSON.stringify(emp)); 
+                } else {
+                    const e = acc[emp.empCode];
+                    e.target += emp.target;
+                    e.achieved += emp.achieved;
+                    e.newInstall += emp.newInstall;
+                    e.warranty += emp.warranty;
+                    e.outWarranty += emp.outWarranty;
+                    e.partCost += emp.partCost;
+                    e.relocate += emp.relocate;
+                    e.collectInstallment += emp.collectInstallment;
+                    e.amount += emp.amount;
+                    e.branchTotal = emp.branchTotal; // Keep latest branch total
+                    e.points += emp.points;
+                    e.nonCommWork += emp.nonCommWork;
+                    e.commission += emp.commission;
+                    e.salary += emp.salary;
+                    e.totalIncome += emp.totalIncome;
+                }
+            });
+        };
+
+        const applyDashboardFilters = async () => {
+            const start = document.getElementById('filter-start').value;
+            const end = document.getElementById('filter-end').value;
+            const icon = document.getElementById('sync-icon-dash');
+            
+            if (icon) icon.classList.add('animate-spin');
+            updateSyncStatus(false, "กำลังดึงข้อมูลตามช่วงเวลาที่กำหนด...");
+            
+            try {
+                let accumulatedData = {};
+                
+                if (start === 'sum') {
+                    const data = await fetchSheetTabForTrip('sum');
+                    const parsed = parseSheetDataToEmployees(data);
+                    accumulateData(accumulatedData, parsed);
+                } else {
+                    const startIdx = periodsList.indexOf(start);
+                    let endIdx = periodsList.indexOf(end);
+                    if (endIdx < startIdx) endIdx = startIdx;
+                    const tabsToFetch = periodsList.slice(startIdx, endIdx + 1);
+                    
+                    for (const tab of tabsToFetch) {
+                        try {
+                            const data = await fetchSheetTabForTrip(tab);
+                            const parsed = parseSheetDataToEmployees(data);
+                            accumulateData(accumulatedData, parsed);
+                        } catch(e) {
+                            console.warn("ไม่พบข้อมูลแท็บ:", tab);
+                        }
+                    }
+                }
+                
+                dashboardViewData = Object.values(accumulatedData);
+                populateFilterDropdowns();
+                renderDashboard();
+                
+                lastSyncError = "";
+                const rangeText = start === 'sum' ? 'แท็บ sum' : (start === end ? start : `${start} ถึง ${end}`);
+                updateSyncStatus(true, `อัปเดตข้อมูล (${rangeText}) สำเร็จ`);
+            } catch (err) {
+                showModal('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลได้: ' + err.message);
+                updateSyncStatus(false, "ดึงข้อมูลล้มเหลว");
+            } finally {
+                if (icon) icon.classList.remove('animate-spin');
+            }
+        };
+
+        const syncAllData = async () => {
+            const iconAll = document.getElementById('sync-all-icon');
+            if (iconAll) iconAll.classList.add('animate-spin');
+            
+            const success = await fetchGoogleSheetData();
+            
+            if (success) {
+                await calculateTripPoints();
+                const lbHalf = parseInt(document.getElementById('leaderboard-half-select').value) || 1;
+                await calculateLeaderboardPoints(lbHalf);
+                state.hasLoadedLeaderboard = true;
+                
+                // Sync dashboard based on current filters automatically
+                await applyDashboardFilters();
+            }
+            
+            if (iconAll) iconAll.classList.remove('animate-spin');
+            
+            if(success) {
+                if (state.currentView === 'employee') renderEmployeeTab();
+                if (state.currentView === 'leaderboard') renderLeaderboard();
+                if (state.currentView === 'trip') renderTrip();
+                showModal('success', 'ซิงค์ข้อมูลทั้งหมดสำเร็จ', 'อัปเดตข้อมูลภาพรวม อันดับ และแคมเปญจากระบบเรียบร้อยแล้ว');
+            } else {
+                showModal('error', 'เกิดข้อผิดพลาดในการซิงค์', lastSyncError || 'ไม่สามารถดึงข้อมูลได้');
+            }
+        };
+
+        const changeMonthTab = async (tabName) => {
+            // Obsolete logic kept for compatibility - functionality moved to applyDashboardFilters
+        };
+
+        // --- 2. UTILS & DATA FILTERING ---
+        const formatMoney = (amt) => new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0 }).format(amt);
+        const formatNum = (num) => new Intl.NumberFormat('th-TH').format(num);
+        const generateId = () => Math.max(...employees.map(e => e.id), 0) + 1;
+
+        const fireConfetti = () => {
+            const duration = 2500;
+            const end = Date.now() + duration;
+            (function frame() {
+                confetti({ particleCount: 4, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
+                confetti({ particleCount: 4, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
+                if (Date.now() < end) requestAnimationFrame(frame);
+            }());
+        };
+
+        const triggerAirplaneEffect = () => {
+            // ฉลองด้วย Confetti สีเขียวและขาว
+            confetti({ particleCount: 100, spread: 80, origin: { y: 0.8 }, colors: ['#10b981', '#34d399', '#ffffff', '#059669'] });
+            
+            // สร้างไอคอนเครื่องบินจำลอง
+            const plane = document.createElement('i');
+            plane.className = 'ph-fill ph-airplane-tilt fly-plane-anim text-6xl';
+            document.body.appendChild(plane);
+            
+            // ลบออกจากระบบหลังจบแอนิเมชัน (1.5 วิ)
+            setTimeout(() => {
+                plane.remove();
+            }, 1500);
+        };
+
+        const getVisibleEmployees = () => {
+            if (!state.currentUser) return [];
+            if (state.currentUser.role === 'admin') return employees;
+            if (state.currentUser.role === 'manager') return employees.filter(e => e.branch === state.currentUser.branch);
+            return employees.filter(e => e.id === state.currentUser.id);
+        };
+
+        const getRoleDisplayName = (role) => {
+            const map = { 'admin': 'ผู้ดูแลระบบ', 'manager': 'ผู้จัดการสาขา', 'head_tech': 'หัวหน้าช่าง', 'tech': 'ช่างเทคนิค' };
+            return map[role] || 'ไม่ระบุ';
+        };
+
+        const getRoleBadgeColor = (role) => {
+            const map = { 
+                'admin': 'bg-purple-100 text-purple-700', 
+                'manager': 'bg-blue-100 text-blue-700', 
+                'head_tech': 'bg-amber-100 text-amber-700', 
+                'tech': 'bg-gray-100 text-gray-700' 
+            };
+            return map[role] || 'bg-gray-100 text-gray-700';
+        };
+
+        const showModal = (type, title, msg, onConfirm = null) => {
+            const modal = document.getElementById('modal-alert');
+            const icon = document.getElementById('alert-icon');
+            const btns = document.getElementById('alert-buttons');
+            
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            
+            if (type === 'success') {
+                icon.className = 'mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 bg-green-100 text-green-600 text-2xl';
+                icon.innerHTML = '<i class="ph ph-check"></i>';
+                btns.innerHTML = `<button onclick="closeAlert()" class="bg-brand-600 text-white px-6 py-2 rounded-lg font-medium">ตกลง</button>`;
+            } else if (type === 'error') {
+                icon.className = 'mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 bg-red-100 text-red-600 text-2xl';
+                icon.innerHTML = '<i class="ph ph-warning"></i>';
+                btns.innerHTML = `<button onclick="closeAlert()" class="bg-gray-800 text-white px-6 py-2 rounded-lg font-medium">ตกลง</button>`;
+            } else if (type === 'warning') {
+                icon.className = 'mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 bg-orange-100 text-orange-600 text-2xl';
+                icon.innerHTML = '<i class="ph ph-warning"></i>';
+                btns.innerHTML = `
+                    <button onclick="closeAlert()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium">ยกเลิก</button>
+                    <button id="alert-confirm-btn" class="bg-red-600 text-white px-4 py-2 rounded-lg font-medium">ยืนยัน</button>
+                `;
+                document.getElementById('alert-confirm-btn').onclick = () => { onConfirm(); closeAlert(); };
+            }
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        };
+        const closeAlert = () => {
+            const modal = document.getElementById('modal-alert');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        // --- 3. LOGIN SYSTEM ---
+        const buildNumpad = () => {
+            const pad = document.querySelector('.grid.grid-cols-3');
+            const keys = [1,2,3,4,5,6,7,8,9,'',0,'del'];
+            pad.innerHTML = keys.map(k => {
+                if (k === '') return `<div></div>`;
+                if (k === 'del') return `<button onclick="handlePin('del')" class="w-16 h-16 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><i class="ph ph-backspace"></i></button>`;
+                return `<button onclick="handlePin('${k}')" class="w-16 h-16 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center font-bold">${k}</button>`;
+            }).join('');
+        };
+
+        const handlePin = (val) => {
+            if (val === 'del') {
+                state.inputPin = state.inputPin.slice(0, -1);
+            } else if (state.inputPin.length < 4) {
+                state.inputPin += val;
+            }
+            
+            const dots = document.querySelectorAll('.pin-dot');
+            dots.forEach((dot, idx) => {
+                dot.classList.toggle('active', idx < state.inputPin.length);
+            });
+
+            if (state.inputPin.length === 4) {
+                setTimeout(verifyPin, 300);
+            }
+        };
+
+        document.addEventListener('keydown', (e) => {
+            const loginScreen = document.getElementById('login-screen');
+            if (loginScreen && !loginScreen.classList.contains('hidden') && !state.currentUser) {
+                if (e.key >= '0' && e.key <= '9') {
+                    handlePin(e.key);
+                } else if (e.key === 'Backspace') {
+                    handlePin('del');
+                }
+            }
+        });
+
+        const verifyPin = () => {
+            const user = employees.find(e => e.pin === state.inputPin);
+            if (user) {
+                state.currentUser = user;
+                initApp();
+            } else {
+                const err = document.getElementById('login-error');
+                err.classList.remove('opacity-0');
+                setTimeout(() => {
+                    err.classList.add('opacity-0');
+                    state.inputPin = '';
+                    document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('active'));
+                }, 1000);
+            }
+        };
+
+        const logout = () => {
+            state.currentUser = null;
+            state.inputPin = '';
+            document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('active'));
+            document.getElementById('app-shell').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                document.getElementById('login-screen').classList.remove('hidden');
+                setTimeout(() => document.getElementById('login-screen').classList.remove('opacity-0'), 50);
+            }, 500);
+        };
+
+        // --- 4. NAVIGATION & SPA LOGIC ---
+        const toggleMobileMenu = () => {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobile-menu-overlay');
+            if(sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        };
+
+        const initApp = () => {
+            const login = document.getElementById('login-screen');
+            login.classList.add('opacity-0');
+            setTimeout(() => login.classList.add('hidden'), 500);
+
+            const app = document.getElementById('app-shell');
+            app.classList.remove('pointer-events-none');
+            app.classList.remove('opacity-0');
+
+            document.getElementById('user-name').innerText = state.currentUser.name;
+            document.getElementById('user-role').innerText = getRoleDisplayName(state.currentUser.role);
+            document.getElementById('user-avatar').innerText = state.currentUser.name.charAt(0);
+
+            if (state.currentUser.role === 'admin') {
+                document.getElementById('nav-employee').classList.remove('hidden');
+                document.getElementById('nav-settings').classList.remove('hidden');
+            } else {
+                document.getElementById('nav-employee').classList.add('hidden');
+                document.getElementById('nav-settings').classList.add('hidden');
+            }
+
+            populateFilterDropdowns(); // Apply permissions and populate dropdowns on init
+            navigate('dashboard');
+        };
+
+        const navigate = (viewId) => {
+            state.currentView = viewId;
+            
+            if (window.innerWidth < 768) {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
+                    toggleMobileMenu();
+                }
+            }
+            
+            ['dashboard', 'employee', 'leaderboard', 'trip', 'settings'].forEach(id => {
+                const btn = document.getElementById(`nav-${id}`);
+                if(btn) {
+                    if (id === viewId) {
+                        btn.classList.add('bg-brand-50', 'text-brand-600');
+                        btn.classList.remove('text-gray-600', 'hover:bg-gray-50');
+                    } else {
+                        btn.classList.add('text-gray-600', 'hover:bg-gray-50');
+                        btn.classList.remove('bg-brand-50', 'text-brand-600');
+                    }
+                }
+                
+                const section = document.getElementById(`view-${id}`);
+                if(section) {
+                    section.classList.toggle('hidden', id !== viewId);
+                }
+            });
+
+            if (viewId === 'dashboard') renderDashboard();
+            if (viewId === 'employee') renderEmployeeTab();
+            if (viewId === 'leaderboard') {
+                if (!state.hasLoadedLeaderboard) {
+                    state.hasLoadedLeaderboard = true;
+                    changeLeaderboardHalf(document.getElementById('leaderboard-half-select').value);
+                    fireConfetti();
+                } else {
+                    renderLeaderboard();
+                    fireConfetti();
+                }
+            }
+            if (viewId === 'trip') renderTrip();
+            if (viewId === 'settings') renderSettings();
+        };
+
+        // --- 5. RENDER FUNCTIONS ---
+        const renderDashboard = () => {
+            let data = dashboardViewData;
+            
+            // Check roles
+            if (state.currentUser) {
+                if (state.currentUser.role === 'manager') {
+                    data = data.filter(e => String(e.branch) === String(state.currentUser.branch));
+                } else if (state.currentUser.role === 'tech' || state.currentUser.role === 'head_tech') {
+                    data = data.filter(e => String(e.empCode) === String(state.currentUser.empCode));
+                }
+            }
+
+            // Apply selected UI filters
+            const selBranch = document.getElementById('filter-branch').value;
+            const selEmp = document.getElementById('filter-emp').value;
+
+            if (selBranch && selBranch !== 'all') {
+                data = data.filter(e => String(e.branch) === String(selBranch));
+            }
+            if (selEmp && selEmp !== 'all') {
+                data = data.filter(e => String(e.empCode) === String(selEmp));
+            }
+
+            const techs = data.filter(e => e.role === 'tech' || e.role === 'head_tech');
+            
+            let tInc = 0, tTar = 0, tAch = 0, tPts = 0, tCom = 0;
+            let sumNew = 0, sumWar = 0, sumOut = 0;
+            
+            const tbody = document.getElementById('dashboard-table-body');
+            tbody.innerHTML = '';
+
+            if (techs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="19" class="px-4 py-8 text-center text-gray-500">ไม่มีข้อมูลผลงานในขอบเขตที่คุณเข้าถึงได้</td></tr>`;
+            }
+
+            techs.forEach(row => {
+                tInc += row.totalIncome; tTar += row.target; tAch += row.achieved;
+                tPts += row.points; tCom += row.commission;
+                sumNew += row.newInstall; sumWar += row.warranty; sumOut += row.outWarranty;
+
+                const missed = row.target > row.achieved ? (row.target - row.achieved) : 0;
+                const missedHtml = missed > 0 
+                    ? `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-bold">${formatNum(missed)}</span>` 
+                    : `<span class="text-gray-300">-</span>`;
+
+                const isHitTarget = row.achieved >= row.target && row.achieved > 0;
+                const targetBadge = isHitTarget ? `<span class="inline-flex items-center gap-0.5 ml-2 bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded-full border border-green-200 shadow-sm"><i class="ph-fill ph-star"></i> ทะลุเป้า</span>` : '';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium border-r border-gray-100 text-gray-900">${row.name} ${targetBadge}</td>
+                        <td class="px-4 py-3 font-mono text-xs text-gray-500">${row.empCode}</td>
+                        <td class="px-4 py-3 text-gray-500">${row.branch}</td>
+                        <td class="px-4 py-3 text-right text-gray-500">${formatNum(row.target)}</td>
+                        <td class="px-4 py-3 text-right font-bold ${row.achieved >= row.target ? 'text-green-600':'text-gray-900'}">${formatNum(row.achieved)}</td>
+                        <td class="px-4 py-3 text-right">${missedHtml}</td>
+                        <td class="px-4 py-3 text-right border-l border-gray-100 text-gray-700">${formatNum(row.newInstall)}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">${formatNum(row.warranty)}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">${formatNum(row.outWarranty)}</td>
+                        <td class="px-4 py-3 text-right border-l border-gray-100 text-gray-700">${formatNum(row.partCost)}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">${formatNum(row.relocate || 0)}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">${formatNum(row.collectInstallment || 0)}</td>
+                        <td class="px-4 py-3 text-right border-l border-gray-200 bg-blue-50/50 font-medium text-blue-700">${formatNum(row.amount)}</td>
+                        <td class="px-4 py-3 text-right bg-blue-50/50 text-gray-600">${formatNum(row.branchTotal || 0)}</td>
+                        <td class="px-4 py-3 text-right border-l border-gray-200 font-bold text-purple-600">${formatNum(row.points)}</td>
+                        <td class="px-4 py-3 text-right text-gray-500">${formatNum(row.nonCommWork || 0)}</td>
+                        <td class="px-4 py-3 text-right bg-orange-50/50 font-bold text-orange-600">${formatNum(row.commission)}</td>
+                        <td class="px-4 py-3 text-right border-l border-gray-200 text-gray-700">${formatNum(row.salary || 0)}</td>
+                        <td class="px-4 py-3 text-right border-l border-green-100 bg-green-50/50 text-green-700 font-bold">${formatNum(row.totalIncome)}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('kpi-total-income').innerText = formatMoney(tInc);
+            document.getElementById('kpi-achieved').innerText = formatNum(tAch);
+            document.getElementById('kpi-target').innerText = formatNum(tTar);
+            document.getElementById('kpi-total-points').innerText = formatNum(tPts);
+            document.getElementById('kpi-total-comm').innerText = formatMoney(tCom);
+
+            // Progress Bar Logic
+            let percent = tTar > 0 ? Math.min(100, (tAch / tTar) * 100) : (tAch > 0 ? 100 : 0);
+            document.getElementById('kpi-percent').innerText = `${percent.toFixed(0)}%`;
+            document.getElementById('kpi-percent').className = `font-bold ${percent >= 100 ? 'text-green-600' : 'text-brand-600'}`;
+            const progressBar = document.getElementById('kpi-progress');
+            progressBar.style.width = `${percent}%`;
+            progressBar.className = `h-1.5 rounded-full transition-all duration-1000 ${percent >= 100 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-brand-500'}`;
+
+            // MVP Logic
+            if (techs.length > 0) {
+                const mvp = [...techs].sort((a,b) => b.achieved - a.achieved)[0];
+                if (mvp && mvp.achieved > 0) {
+                    document.getElementById('dashboard-mvp').innerHTML = `
+                        <h3 class="text-xl font-black text-gray-900 truncate" title="${mvp.name}">${mvp.name}</h3>
+                        <p class="text-sm font-medium text-orange-600 mt-0.5"><span class="font-bold text-lg">${formatNum(mvp.achieved)}</span> <span class="text-xs text-orange-500">งานสำเร็จ</span></p>
+                    `;
+                } else {
+                    document.getElementById('dashboard-mvp').innerHTML = `<span class="text-gray-400 text-sm">ยังไม่มีผลงาน</span>`;
+                }
+            } else {
+                document.getElementById('dashboard-mvp').innerHTML = `<span class="text-gray-400 text-sm">ไม่มีข้อมูล</span>`;
+            }
+
+            if(charts.perf) charts.perf.destroy();
+            if(charts.type) charts.type.destroy();
+
+            const ctxPerf = document.getElementById('performanceChart').getContext('2d');
+            charts.perf = new Chart(ctxPerf, {
+                type: 'bar',
+                data: {
+                    labels: techs.map(d => d.name.split(' ')[0]),
+                    datasets: [
+                        { label: 'เป้าหมาย', data: techs.map(d => d.target), backgroundColor: '#cbd5e1', borderRadius: 4 },
+                        { label: 'ทำได้', data: techs.map(d => d.achieved), backgroundColor: '#3b82f6', borderRadius: 4 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins:{ legend: {font:{family:'Prompt'}} } }
+            });
+
+            const ctxType = document.getElementById('jobTypeChart').getContext('2d');
+            charts.type = new Chart(ctxType, {
+                type: 'doughnut',
+                data: {
+                    labels: ['ติดตั้งใหม่', 'ในประกัน', 'หมดประกัน'],
+                    datasets: [{ data: [sumNew, sumWar, sumOut], backgroundColor: ['#8b5cf6', '#10b981', '#f59e0b'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins:{ legend: {position:'bottom', font:{family:'Prompt'}} } }
+            });
+        };
+
+        const renderEmployeeTab = () => {
+            const visibleEmp = getVisibleEmployees();
+            const tbody = document.getElementById('employee-table-body');
+            
+            tbody.innerHTML = visibleEmp.map(emp => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 font-mono text-gray-500 text-xs">${emp.empCode}</td>
+                    <td class="px-6 py-4 font-medium">${emp.name}</td>
+                    <td class="px-6 py-4 text-gray-500">${emp.branch}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(emp.role)}">
+                            ${getRoleDisplayName(emp.role)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 font-mono text-gray-500">${emp.pin}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="editEmployee(${emp.id})" class="text-blue-600 hover:text-blue-800 p-1"><i class="ph ph-pencil-simple"></i></button>
+                        ${emp.id !== state.currentUser.id ? `<button onclick="confirmDelete(${emp.id})" class="text-red-600 hover:text-red-800 p-1 ml-2"><i class="ph ph-trash"></i></button>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        };
+
+        const renderLeaderboard = () => {
+            // Sort by leaderboardPoints desc, include only techs from ALL employees (exclude head_tech)
+            const sorted = employees.filter(e => e.role === 'tech').sort((a, b) => b.leaderboardPoints - a.leaderboardPoints);
+            
+            const podiumCon = document.getElementById('podium-container');
+            const listCon = document.getElementById('ranking-list');
+            
+            podiumCon.innerHTML = ''; listCon.innerHTML = '';
+
+            const getPointsToNextRank = (currentIndex) => {
+                if (currentIndex === 0 || sorted.length <= 1) return null; 
+                const currentPoints = sorted[currentIndex].leaderboardPoints;
+                const nextHigherPoints = sorted[currentIndex - 1].leaderboardPoints;
+                const diff = nextHigherPoints - currentPoints;
+                return diff <= 0 ? 0.1 : Number(diff.toFixed(1)); 
+            };
+
+            const buildPodiumCard = (emp, rank, heightClass, colorClass, medal, index) => {
+                const diffPoints = getPointsToNextRank(index);
+                const diffHtml = diffPoints !== null 
+                    ? `<div class="text-[9px] sm:text-[10px] text-gray-500 bg-white/80 rounded px-1 mt-1 font-normal w-full text-center leading-tight truncate shrink-0" title="ตามหลังอันดับ ${rank-1} อยู่ ${formatNum(diffPoints)} พ้อย"><i class="ph ph-arrow-up-right text-green-500"></i> อีก ${formatNum(diffPoints)} pt แซง!</div>` 
+                    : '';
+
+                const isFirst = rank === 1;
+                const extraClasses = isFirst ? 'ring-4 ring-yellow-400/50 ring-offset-2 shadow-[0_0_40px_rgba(234,179,8,0.4)] z-20 cursor-pointer' : 'z-10 hover:bg-gray-50';
+                const medalAnimation = isFirst ? 'animate-bounce drop-shadow-md' : '';
+                const onClickAttr = isFirst ? 'onclick="fireConfetti()"' : '';
+
+                return `
+                <div ${onClickAttr} class="bg-white rounded-t-xl shadow-md w-24 sm:w-32 flex flex-col items-center p-2 sm:p-3 podium-${rank} ${heightClass} relative overflow-hidden justify-end transition-transform duration-300 hover:-translate-y-2 ${extraClasses}" ${isFirst ? 'title="คลิกเพื่อฉลองรางวัล!"' : ''}>
+                    <div class="absolute inset-0 bg-gradient-to-t ${isFirst ? 'from-yellow-50/60' : 'from-transparent'} to-transparent pointer-events-none"></div>
+                    
+                    <div class="text-3xl sm:text-4xl mb-1 ${colorClass} shrink-0 relative ${medalAnimation}">${medal}</div>
+                    <div class="w-10 h-10 sm:w-14 sm:h-14 rounded-full flex items-center justify-center font-bold mb-1 sm:mb-2 border-2 ${isFirst ? 'bg-white border-yellow-400 text-yellow-600 shadow-lg' : 'bg-gray-100 text-gray-600 border-white shadow-sm'} shrink-0 text-sm sm:text-lg relative">${emp.name.charAt(0)}</div>
+                    
+                    <div class="text-[9px] sm:text-xs font-bold text-center w-full leading-tight line-clamp-2 mb-1 shrink-0 relative z-10 ${isFirst ? 'text-gray-900' : 'text-gray-700'}">${emp.name}</div>
+                    <div class="text-[10px] sm:text-sm font-extrabold ${colorClass} mt-auto shrink-0 relative z-10">${formatNum(emp.leaderboardPoints)} pt</div>
+                    
+                    ${diffHtml}
+                    
+                    <div class="w-full ${isFirst ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-inner' : 'bg-gray-100 text-gray-500'} py-0.5 sm:py-1.5 text-center font-bold rounded text-[9px] sm:text-xs mt-2 shrink-0 relative z-10">อันดับ ${rank}</div>
+                </div>
+            `};
+
+            if (sorted.length >= 3) {
+                podiumCon.innerHTML = 
+                    buildPodiumCard(sorted[1], 2, 'h-64', 'text-gray-400', '<i class="ph-fill ph-trophy"></i>', 1) +
+                    buildPodiumCard(sorted[0], 1, 'h-72', 'text-yellow-500', '<i class="ph-fill ph-trophy"></i>', 0) +
+                    buildPodiumCard(sorted[2], 3, 'h-56', 'text-amber-600', '<i class="ph-fill ph-trophy"></i>', 2);
+
+                listCon.innerHTML = sorted.slice(3).map((emp, idx) => {
+                    const actualIndex = idx + 3; 
+                    const diffPoints = getPointsToNextRank(actualIndex);
+                    
+                    return `
+                    <li class="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center hover:bg-gray-50 gap-2 sm:gap-0">
+                        <div class="flex items-center gap-4">
+                            <div class="font-bold text-gray-400 w-6 text-right">${actualIndex + 1}</div>
+                            <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-sm shrink-0">${emp.name.charAt(0)}</div>
+                            <div>
+                                <div class="font-bold text-gray-900 line-clamp-1">${emp.name}</div>
+                                <div class="text-xs text-gray-500 line-clamp-1">${emp.branch}</div>
+                            </div>
+                        </div>
+                        <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center w-full sm:w-auto pl-14 sm:pl-0">
+                            <div class="font-bold text-purple-600">${formatNum(emp.leaderboardPoints)} พ้อย</div>
+                            ${diffPoints !== null ? `<div class="text-xs text-gray-500 mt-0.5 bg-gray-100 px-2 py-0.5 rounded-full"><i class="ph ph-trend-up text-green-500"></i> ทำอีก <span class="font-bold text-gray-700">${formatNum(diffPoints)}</span> แซงอันดับ ${actualIndex}</div>` : ''}
+                        </div>
+                    </li>
+                `}).join('');
+            } else if (sorted.length > 0) {
+                podiumCon.innerHTML = sorted.map((emp, i) => buildPodiumCard(emp, i+1, i===0?'h-72':'h-64', i===0?'text-yellow-500':'text-gray-400', '<i class="ph-fill ph-trophy"></i>', i)).join('');
+                listCon.innerHTML = `<li><div class="p-4 text-center text-gray-500 text-sm">ไม่มีข้อมูลผู้ท้าชิงเพิ่มเติม</div></li>`;
+            } else {
+                podiumCon.innerHTML = `<div class="text-center text-gray-500 py-10 w-full">ไม่มีข้อมูลสำหรับจัดอันดับในขณะนี้</div>`;
+            }
+        };
+
+        const renderTrip = () => {
+            const visibleEmp = getVisibleEmployees();
+            const techs = visibleEmp.filter(e => e.role === 'tech' || e.role === 'head_tech');
+            const target = parseInt(tripSettings.targetPoints) || 0;
+            
+            document.getElementById('trip-banner-title').innerText = tripSettings.name;
+            document.getElementById('trip-banner-target').innerText = formatNum(target);
+            
+            const bannerContainer = document.getElementById('trip-banner-container');
+            if(tripSettings.imageUrl && tripSettings.imageUrl.trim() !== "") {
+                bannerContainer.style.backgroundImage = `url('${tripSettings.imageUrl}')`;
+            } else {
+                bannerContainer.style.backgroundImage = `none`;
+                bannerContainer.className = "bg-gradient-to-br from-indigo-900 via-blue-800 to-brand-600 rounded-3xl p-8 sm:p-10 text-white mb-8 relative overflow-hidden shadow-2xl bg-cover bg-center border border-blue-400/20";
+            }
+            
+            const formatDate = (ds) => new Date(ds).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+            
+            const months = getMonthsBetweenDates(tripSettings.startDate, tripSettings.endDate);
+            const monthsText = months.length > 1 ? `(รวมยอดจากแท็บ ${months[0]} ถึง ${months[months.length-1]})` : `(ยอดจากแท็บ ${months[0]})`;
+            document.getElementById('trip-banner-date').innerText = `${formatDate(tripSettings.startDate)} - ${formatDate(tripSettings.endDate)} ${monthsText}`;
+
+            const today = new Date();
+            const endDate = new Date(tripSettings.endDate);
+            const timeDiff = endDate.getTime() - today.getTime();
+            const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+            const isEnded = daysLeft <= 0;
+
+            const listCon = document.getElementById('trip-individual-list');
+            listCon.innerHTML = techs.sort((a,b) => (b.tripPoints || 0) - (a.tripPoints || 0)).map(emp => {
+                const current = emp.tripPoints || 0;
+                const percent = target > 0 ? Math.min(100, (current / target) * 100).toFixed(1) : 100;
+                const remaining = Math.max(0, target - current);
+                const isSuccess = remaining === 0;
+                
+                let paceHtml = '';
+                if (isSuccess) {
+                    paceHtml = `<div class="text-emerald-600 font-bold text-sm flex items-center gap-1 mt-3 bg-emerald-50 py-2 px-3 rounded-lg"><i class="ph-fill ph-check-circle text-lg"></i> ปลดล็อกตั๋วเครื่องบินเรียบร้อย!</div>`;
+                } else if (isEnded) {
+                    paceHtml = `<div class="text-red-500 font-bold text-sm mt-3 bg-red-50 py-2 px-3 rounded-lg"><i class="ph-fill ph-x-circle text-lg"></i> หมดระยะเวลาแคมเปญ</div>`;
+                } else {
+                    const reqPerDay = (remaining / daysLeft).toFixed(1);
+                    const reqPerMonth = (remaining / (daysLeft / 30)).toFixed(0);
+                    paceHtml = `
+                        <div class="flex justify-between items-center text-xs mt-3 bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                            <div class="text-gray-500 font-medium"><i class="ph ph-gauge"></i> ต้องทำเพิ่มเฉลี่ย:</div>
+                            <div class="text-right">
+                                <span class="font-bold text-brand-600">${reqPerDay}</span> พ้อย/วัน<br>
+                                <span class="font-bold text-brand-600">${reqPerMonth}</span> พ้อย/เดือน
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const stampHtml = isSuccess ? `
+                    <div class="absolute -right-4 top-4 z-10 opacity-90 transform rotate-12 pointer-events-none">
+                        <div class="border-4 border-emerald-500 text-emerald-500 rounded-lg px-3 py-1 font-black tracking-widest text-xl bg-white/80 backdrop-blur-sm shadow-sm">
+                            PASSED
+                        </div>
+                    </div>
+                ` : '';
+
+                const cardClass = isSuccess ? 'border-emerald-400 shadow-emerald-100/50 bg-gradient-to-br from-white to-emerald-50/30 cursor-pointer hover:shadow-xl hover:shadow-emerald-200/60 hover:border-emerald-500' : 'border-gray-200 bg-white hover:border-brand-300 hover:shadow-brand-100';
+                const progressBg = isSuccess ? 'from-emerald-400 to-green-500' : 'from-blue-400 to-brand-600';
+                const airplaneColor = isSuccess ? 'text-green-700' : 'text-brand-700';
+                const onClickAttr = isSuccess ? 'onclick="triggerAirplaneEffect()" title="คลิกเพื่อรับตั๋วเครื่องบิน!"' : '';
+
+                return `
+                <div ${onClickAttr} class="border-2 ${cardClass} rounded-3xl p-5 sm:p-6 shadow-sm relative overflow-hidden flex flex-col transition-all duration-300 transform hover:-translate-y-1 group">
+                    ${stampHtml}
+                    <div class="flex justify-between items-start mb-5">
+                        <div class="flex items-center gap-3">
+                            <div class="w-14 h-14 rounded-2xl ${isSuccess ? 'bg-emerald-100 text-emerald-600 border-emerald-200' : 'bg-blue-50 text-blue-600 border-blue-100'} flex items-center justify-center font-bold text-xl border shadow-sm shrink-0">
+                                ${emp.name.charAt(0)}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 text-lg line-clamp-1">${emp.name}</h4>
+                                <p class="text-sm text-gray-500 flex items-center gap-1"><i class="ph-fill ph-map-pin"></i> ${emp.branch}</p>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 shadow-inner">
+                            <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Target</div>
+                            <div class="font-black text-gray-800 leading-none">${formatNum(target)}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-2 flex justify-between items-end mt-auto">
+                        <div class="text-3xl font-black ${isSuccess ? 'text-emerald-600' : 'text-brand-600'} drop-shadow-sm">${formatNum(current)} <span class="text-sm font-bold text-gray-400">pt</span></div>
+                        <div class="text-sm font-black ${isSuccess ? 'text-emerald-500' : 'text-gray-700'}">${percent}%</div>
+                    </div>
+                    
+                    <!-- Progress Bar with Airplane -->
+                    <div class="w-full bg-gray-100 rounded-full h-3.5 mb-3 relative shadow-inner">
+                        <div class="bg-gradient-to-r ${progressBg} h-3.5 rounded-full transition-all duration-1000 relative shadow-sm" style="width: ${percent}%">
+                            <div class="absolute -right-3 -top-2 bg-white rounded-full p-0.5 shadow-md border border-gray-50 transition-transform duration-500 group-hover:scale-110">
+                                <i class="ph-fill ph-airplane-tilt ${airplaneColor} text-lg transform ${isSuccess ? '-translate-y-1 -rotate-12' : ''}"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-xs text-gray-500 flex justify-between font-medium px-1">
+                        <span>${isSuccess ? '✅ บรรลุเป้าหมายแล้ว' : `ขาดอีก <span class="font-bold text-orange-500">${formatNum(remaining)}</span> พ้อย`}</span>
+                        <span class="flex items-center gap-1"><i class="ph ph-clock text-gray-400"></i> ${isEnded ? '0' : daysLeft} วัน</span>
+                    </div>
+                    
+                    ${paceHtml}
+                </div>`;
+            }).join('');
+            
+            if(techs.length === 0) listCon.innerHTML = `<div class="col-span-full text-center text-gray-500 py-8">ไม่มีข้อมูลผู้เข้าร่วมแคมเปญในขอบเขตนี้</div>`;
+        };
+
+        // 5.5 System Settings
+        const renderSettings = () => {
+            document.getElementById('set-trip-name').value = tripSettings.name;
+            document.getElementById('set-trip-target').value = tripSettings.targetPoints;
+            document.getElementById('set-trip-start').value = tripSettings.startDate;
+            document.getElementById('set-trip-end').value = tripSettings.endDate;
+            document.getElementById('set-trip-image').value = tripSettings.imageUrl || '';
+        };
+
+        const saveSettings = async () => {
+            const name = document.getElementById('set-trip-name').value;
+            const targetPoints = document.getElementById('set-trip-target').value;
+            const startDate = document.getElementById('set-trip-start').value;
+            const endDate = document.getElementById('set-trip-end').value;
+            const imageUrl = document.getElementById('set-trip-image').value;
+
+            if (!name || !targetPoints || !startDate || !endDate) {
+                showModal('warning', 'ข้อมูลไม่ครบถ้วน', 'กรุณากรอกข้อมูลให้ครบถ้วน');
+                return;
+            }
+
+            tripSettings = {
+                name,
+                targetPoints: parseInt(targetPoints),
+                startDate,
+                endDate,
+                imageUrl
+            };
+
+            showModal('success', 'บันทึกสำเร็จ', 'ตั้งค่าแคมเปญท่องเที่ยวเรียบร้อยแล้ว');
+            
+            const icon = document.getElementById('sync-icon');
+            if (icon) icon.classList.add('animate-spin');
+            await calculateTripPoints();
+            if (icon) icon.classList.remove('animate-spin');
+
+            if(state.currentView === 'trip') renderTrip();
+        };
+
+        // --- 6. EMPLOYEE CRUD LOGIC ---
+        const openEmployeeModal = (emp = null) => {
+            const m = document.getElementById('modal-employee');
+            document.getElementById('modal-emp-title').innerText = emp ? 'แก้ไขข้อมูลพนักงาน' : 'เพิ่มพนักงานใหม่';
+            
+            document.getElementById('emp-id').value = emp ? emp.id : '';
+            document.getElementById('emp-code').value = emp ? emp.empCode : '';
+            document.getElementById('emp-name').value = emp ? emp.name : '';
+            document.getElementById('emp-branch').value = emp ? emp.branch : (state.currentUser.role === 'manager' ? state.currentUser.branch : '');
+            document.getElementById('emp-pin').value = emp ? emp.pin : '';
+            document.getElementById('emp-role').value = emp ? emp.role : 'tech';
+
+            if (state.currentUser.role === 'manager' && !emp) {
+                document.getElementById('emp-branch').disabled = true;
+                document.getElementById('emp-branch').classList.add('bg-gray-100');
+            } else {
+                document.getElementById('emp-branch').disabled = false;
+                document.getElementById('emp-branch').classList.remove('bg-gray-100');
+            }
+
+            m.classList.remove('hidden');
+            setTimeout(() => m.classList.remove('opacity-0'), 10);
+        };
+
+        const closeEmployeeModal = () => {
+            const m = document.getElementById('modal-employee');
+            m.classList.add('opacity-0');
+            setTimeout(() => m.classList.add('hidden'), 300);
+        };
+
+        const editEmployee = (id) => {
+            const emp = employees.find(e => e.id === id);
+            if(emp) openEmployeeModal(emp);
+        };
+
+        const saveEmployee = () => {
+            const id = document.getElementById('emp-id').value;
+            const empCode = document.getElementById('emp-code').value;
+            const name = document.getElementById('emp-name').value;
+            const branch = document.getElementById('emp-branch').value;
+            const pin = document.getElementById('emp-pin').value;
+            const role = document.getElementById('emp-role').value;
+
+            if(!name || !empCode || pin.length !== 4) {
+                showModal('warning', 'ข้อมูลไม่ครบถ้วน', 'กรุณากรอกรหัสพนักงาน ชื่อ-นามสกุล และรหัส PIN 4 หลัก ให้ครบถ้วน');
+                return;
+            }
+
+            if(id) { 
+                const idx = employees.findIndex(e => e.id == id);
+                if(idx > -1) {
+                    employees[idx] = { ...employees[idx], empCode, name, branch, pin, role };
+                }
+            } else { 
+                employees.push({
+                    id: generateId(), empCode, name, branch, pin, role,
+                    target: 0, achieved: 0, newInstall: 0, warranty: 0, outWarranty: 0, partCost: 0, amount: 0, points: 0, commission: 0, totalIncome: 0
+                });
+            }
+            closeEmployeeModal();
+            renderEmployeeTab();
+            if (state.currentView === 'dashboard') renderDashboard(); 
+            showModal('success', 'สำเร็จ', 'บันทึกข้อมูลพนักงานเรียบร้อยแล้ว');
+        };
+
+        const confirmDelete = (id) => {
+            const emp = employees.find(e => e.id === id);
+            showModal('warning', 'ยืนยันการลบ', `คุณต้องการลบพนักงานรหัส ${emp.empCode} (${emp.name}) ใช่หรือไม่?`, () => {
+                employees = employees.filter(e => e.id !== id);
+                renderEmployeeTab();
+            });
+        };
+
+        // --- 7. EXCEL IMPORT (SHEETJS SIMULATION) ---
+        const handleExcelImport = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const bstr = evt.target.result;
+                    const wb = XLSX.read(bstr, {type:'binary'});
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
+                    const data = XLSX.utils.sheet_to_json(ws);
+                    
+                    let importedCount = 0;
+                    data.forEach(row => {
+                        const name = row['Name'] || row['ชื่อ'] || row['ชื่อช่าง'];
+                        const rawRole = row['Role'] || row['สิทธิ์'] || '';
+                        let roleMap = 'tech';
+                        if (rawRole.includes('Admin')) roleMap = 'admin';
+                        else if (rawRole.includes('Manager')) roleMap = 'manager';
+                        else if (rawRole.includes('Head')) roleMap = 'head_tech';
+
+                        if (name) {
+                            employees.push({
+                                id: generateId(),
+                                empCode: row['EmpCode'] || row['รหัสพนักงาน'] || `EMP${generateId()}`,
+                                name: name,
+                                branch: row['Branch'] || row['สาขา'] || (state.currentUser.role === 'manager' ? state.currentUser.branch : 'ไม่ระบุ'),
+                                role: roleMap,
+                                pin: String(row['PIN'] || '0000').padStart(4, '0'),
+                                target: row['Target'] || 0, achieved: row['Achieved'] || 0, newInstall: 0, warranty: 0, outWarranty: 0, partCost: 0, amount: 0, points: row['Points'] || 0, commission: 0, totalIncome: 0
+                            });
+                            importedCount++;
+                        }
+                    });
+
+                    renderEmployeeTab();
+                    showModal('success', 'นำเข้าข้อมูลสำเร็จ', `เพิ่มพนักงานจำนวน ${importedCount} รายการเรียบร้อยแล้ว`);
+                } catch (err) {
+                    showModal('warning', 'เกิดข้อผิดพลาด', 'ไฟล์ Excel ไม่ถูกต้อง หรือรูปแบบคอลัมน์ไม่ตรงกัน');
+                }
+                e.target.value = '';
+            };
+            reader.readAsBinaryString(file);
+        };
+
+        const exportDashboardToExcel = () => {
+            const table = document.querySelector('#view-dashboard table');
+            if (!table) return;
+            const wb = XLSX.utils.table_to_book(table, {sheet: "Dashboard_Data"});
+            
+            // Get Current Filter Range for file name
+            const start = document.getElementById('filter-start').value;
+            const end = document.getElementById('filter-end').value;
+            const rangeStr = start === 'sum' ? 'SUM' : (start === end ? start : `${start}_to_${end}`);
+            
+            XLSX.writeFile(wb, `PBD_Dashboard_${rangeStr}.xlsx`);
+        };
+
+        // Init App On Load
+        document.addEventListener('DOMContentLoaded', async () => {
+            const success = await fetchGoogleSheetData(); 
+            if(success) {
+                await calculateTripPoints(); 
+            }
+            buildNumpad();
+        });
+    </script>
+</body>
+</html>
