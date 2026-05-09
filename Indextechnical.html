@@ -311,13 +311,18 @@
                             <h3 class="text-md font-bold mb-4">สัดส่วนประเภทงาน</h3>
                             <div class="h-64 flex justify-center"><canvas id="jobTypeChart"></canvas></div>
                         </div>
+                        <!-- กราฟใหม่: รายละเอียดงานเชิงลึก -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-3">
+                            <h3 class="text-md font-bold mb-4">สถิติรายละเอียดงาน (รวมทั้งทีม)</h3>
+                            <div class="h-72"><canvas id="detailedStatsChart"></canvas></div>
+                        </div>
                     </div>
 
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div class="p-4 border-b border-gray-200">
                             <h3 class="font-bold">รายละเอียดรายบุคคล</h3>
                         </div>
-                        <div class="overflow-x-auto table-container max-h-[400px]">
+                        <div class="overflow-x-auto table-container">
                             <table class="min-w-full divide-y divide-gray-200 text-sm whitespace-nowrap">
                                 <thead class="bg-gray-50">
                                     <tr>
@@ -570,6 +575,70 @@
         </div>
     </div>
 
+    <!-- ================= FIREBASE ================= -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBz6aAeRQMj8tVWiA_2LvpYkS-GdIK4E2Y",
+            authDomain: "pbd-tcpage.firebaseapp.com",
+            projectId: "pbd-tcpage",
+            storageBucket: "pbd-tcpage.firebasestorage.app",
+            messagingSenderId: "164954593993",
+            appId: "1:164954593993:web:d07e960cbb9c9371b70b18"
+        };
+        
+        // ID สำหรับเก็บข้อมูล (pbd-main-config)
+        const appId = "pbd-technician-config"; 
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        window.initFirebaseAndSync = async () => {
+            try {
+                // 1. ล็อกอินแบบไม่ระบุตัวตน (Anonymous)
+                await signInAnonymously(auth);
+                console.log("Firebase Connected Anonymously");
+                
+                // 2. อ้างอิงไปยังเอกสารที่เก็บค่า Trip Settings
+                const settingsRef = doc(db, 'settings', 'trip_campaign');
+                
+                // 3. ติดตามการเปลี่ยนแปลงข้อมูลแบบ Real-time
+                onSnapshot(settingsRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const cloudData = docSnap.data();
+                        // อัปเดตตัวแปร Global
+                        window.tripSettings = { ...window.tripSettings, ...cloudData };
+                        // แจ้งเตือน UI ให้วาดหน้าจอใหม่
+                        window.dispatchEvent(new Event('firebase-settings-updated'));
+                    }
+                });
+
+            } catch(e) {
+                console.error("Firebase Sync Error:", e);
+            }
+        };
+
+        // ฟังก์ชันส่วนกลางสำหรับบันทึกค่าลง Firebase
+        window.saveFirebaseSettings = async (newSettings) => {
+            try {
+                const settingsRef = doc(db, 'settings', 'trip_campaign');
+                await setDoc(settingsRef, newSettings, { merge: true });
+                return true;
+            } catch(e) {
+                console.error("Error saving to Firebase:", e);
+                return false;
+            }
+        };
+
+        // เริ่มต้นการทำงาน
+        window.initFirebaseAndSync();
+    </script>
+
     <!-- ================= JAVASCRIPT ================= -->
     <script>
         // --- 1. STATE & DATA ---
@@ -592,14 +661,23 @@
         let currentSheetTab = 'sum'; 
         // ==========================================
 
-        // Trip Settings State
-        let tripSettings = {
+        // Trip Settings State (Global for Firebase sync)
+        window.tripSettings = {
             name: "ตะลุยแดนอาทิตย์อุทัย (Japan Trip 2026)",
             targetPoints: 500,
             startDate: "2026-01-01",
             endDate: "2026-12-31",
             imageUrl: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=2070&auto=format&fit=crop" // ค่าเริ่มต้นภาพญี่ปุ่นสวยๆ
         };
+
+        // Listener for Firebase updates
+        window.addEventListener('firebase-settings-updated', async () => {
+            if (state.currentView === 'settings') renderSettings();
+            if (state.currentView === 'trip') {
+                await calculateTripPoints();
+                renderTrip();
+            }
+        });
 
         // Data Storage
         let employees = [];
@@ -692,31 +770,60 @@
             }
         };
 
-        const parseSheetDataToEmployees = (data) => {
-            let fetchedEmployees = [];
-            data.forEach((row, index) => {
-                const name = row['ชื่อช่าง'] || row['ชื่อ'] || row['Name'];
-                if(name) {
-                    const rawRole = String(row['สิทธิ์'] || row['Role'] || row['ตำแหน่ง'] || '').toLowerCase();
-                    let roleMap = 'tech';
-                    if (rawRole.includes('admin') || rawRole.includes('ผู้ดูแล') || rawRole.includes('แอดมิน')) roleMap = 'admin';
-                    else if (rawRole.includes('manager') || rawRole.includes('ผู้จัดการ') || rawRole.includes('ผจก')) roleMap = 'manager';
-                    else if (rawRole.includes('head') || rawRole.includes('หัวหน้า')) roleMap = 'head_tech';
+        const fetchMasterUsers = async () => {
+            try {
+                const data = await fetchSheetTabForTrip('User');
+                if (data && data.length > 0) {
+                    let fetchedEmployees = [];
+                    data.forEach((row, index) => {
+                        const name = row['ชื่อ-นามสกุล'] || row['ชื่อ'] || row['ชื่อช่าง'] || row['Name'];
+                        if(name) {
+                            const rawRole = String(row['สิทธิ์'] || row['Role'] || row['ตำแหน่ง'] || '').toLowerCase();
+                            let roleMap = 'tech';
+                            if (rawRole.includes('admin') || rawRole.includes('ผู้ดูแล') || rawRole.includes('แอดมิน')) roleMap = 'admin';
+                            else if (rawRole.includes('manager') || rawRole.includes('ผู้จัดการ') || rawRole.includes('ผจก')) roleMap = 'manager';
+                            else if (rawRole.includes('head') || rawRole.includes('หัวหน้า')) roleMap = 'head_tech';
 
-                    let rawPin = row['PIN'] !== undefined ? row['PIN'] : 
-                                (row['Pin'] !== undefined ? row['Pin'] : 
-                                (row['pin'] !== undefined ? row['pin'] : 
-                                (row['รหัส'] !== undefined ? row['รหัส'] : '0000')));
+                            let rawPin = row['PIN'] !== undefined ? row['PIN'] : 
+                                        (row['Pin'] !== undefined ? row['Pin'] : 
+                                        (row['pin'] !== undefined ? row['pin'] : 
+                                        (row['รหัส'] !== undefined ? row['รหัส'] : '0000')));
 
-                    const rawEmpCode = row['รหัสพนักงาน'] !== undefined ? row['รหัสพนักงาน'] : (row['EmpCode'] !== undefined ? row['EmpCode'] : `EMP${index+1}`);
+                            const rawEmpCode = row['รหัสพนักงาน'] !== undefined ? row['รหัสพนักงาน'] : (row['EmpCode'] !== undefined ? row['EmpCode'] : `EMP${index+1}`);
 
-                    fetchedEmployees.push({
-                        id: index + 2,
+                            fetchedEmployees.push({
+                                id: index + 2,
+                                empCode: String(rawEmpCode),
+                                name: String(name),
+                                branch: String(row['สาขา'] || row['Branch'] || 'ไม่ระบุ'),
+                                role: roleMap,
+                                pin: String(rawPin).padStart(4, '0'),
+                                target: 0, achieved: 0, newInstall: 0, warranty: 0, outWarranty: 0, partCost: 0, relocate: 0, collectInstallment: 0, amount: 0, branchTotal: 0, points: 0, nonCommWork: 0, commission: 0, salary: 0, totalIncome: 0, tripPoints: 0, leaderboardPoints: 0
+                            });
+                        }
+                    });
+                    if(fetchedEmployees.length > 0) {
+                        if (!fetchedEmployees.some(e => e.role === 'admin')) {
+                            fetchedEmployees.unshift(mockEmployees[0]);
+                        }
+                        employees = fetchedEmployees;
+                        return true;
+                    }
+                }
+                return false;
+            } catch(e) {
+                console.error("Error loading User tab:", e);
+                return false;
+            }
+        };
+
+        const parsePerformanceData = (data) => {
+            let records = [];
+            data.forEach((row) => {
+                const rawEmpCode = row['รหัสพนักงาน'] !== undefined ? row['รหัสพนักงาน'] : row['EmpCode'];
+                if(rawEmpCode !== undefined) {
+                    records.push({
                         empCode: String(rawEmpCode),
-                        name: String(name),
-                        branch: String(row['สาขา'] || row['Branch'] || 'ไม่ระบุ'),
-                        role: roleMap,
-                        pin: String(rawPin).padStart(4, '0'),
                         target: Number(row['ตั้งเป้า'] || 0),
                         achieved: Number(row['ทำได้'] || 0),
                         newInstall: Number(row['ติดตั้งใหม่'] || 0),
@@ -731,13 +838,11 @@
                         nonCommWork: Number(row['งานที่ไม่คิดค่าคอม'] || 0),
                         commission: Number(row['ค่าคอมที่ได้'] || 0),
                         salary: Number(row['เงินเดือน'] || 0),
-                        totalIncome: Number(row['รายได้ทั้งหมด'] || 0),
-                        tripPoints: 0,
-                        leaderboardPoints: 0
+                        totalIncome: Number(row['รายได้ทั้งหมด'] || 0)
                     });
                 }
             });
-            return fetchedEmployees;
+            return records;
         };
 
         const fetchGoogleSheetData = async () => {
@@ -748,25 +853,29 @@
                 return false;
             }
             try {
-                const data = await fetchSheetTabForTrip('sum'); // Default fetch 'sum' as base structure
-                let fetchedEmployees = parseSheetDataToEmployees(data);
-                
-                if(fetchedEmployees.length > 0) {
-                    if (!fetchedEmployees.some(e => e.role === 'admin')) {
-                        fetchedEmployees.unshift(mockEmployees[0]);
-                    }
-                    employees = fetchedEmployees;
-                    
-                    if (dashboardViewData.length === 0) {
-                        dashboardViewData = JSON.parse(JSON.stringify(employees));
-                    }
-                    
-                    lastSyncError = "";
-                    updateSyncStatus(true, `เชื่อมต่อข้อมูลสำเร็จ เมื่อ ` + new Date().toLocaleTimeString('th-TH'));
-                    return true;
-                } else {
-                    throw new Error(`ไม่พบข้อมูลในแท็บชื่อ sum`);
+                // 1. ดึงข้อมูลพนักงานจากแท็บ User ก่อน
+                const hasUsers = await fetchMasterUsers();
+                if (!hasUsers) {
+                    throw new Error(`ไม่พบข้อมูลในแท็บชื่อ User`);
                 }
+
+                // 2. ดึงข้อมูลผลงานจากแท็บ sum
+                const data = await fetchSheetTabForTrip('sum'); 
+                const perfRecords = parsePerformanceData(data);
+                
+                // เอาผลงานไปใส่ให้พนักงาน
+                perfRecords.forEach(perf => {
+                    const empIndex = employees.findIndex(e => e.empCode === perf.empCode);
+                    if (empIndex > -1) {
+                        Object.assign(employees[empIndex], perf); // merge stats
+                    }
+                });
+
+                dashboardViewData = JSON.parse(JSON.stringify(employees));
+                
+                lastSyncError = "";
+                updateSyncStatus(true, `เชื่อมต่อข้อมูลสำเร็จ เมื่อ ` + new Date().toLocaleTimeString('th-TH'));
+                return true;
             } catch (error) {
                 console.warn("ระบบเปลี่ยนไปใช้ข้อมูลจำลองเนื่องจาก:", error.message);
                 lastSyncError = error.message;
@@ -778,7 +887,7 @@
 
         const calculateTripPoints = async () => {
             if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL.trim() === '') return;
-            const months = getMonthsBetweenDates(tripSettings.startDate, tripSettings.endDate);
+            const months = getMonthsBetweenDates(window.tripSettings.startDate, window.tripSettings.endDate);
             let employeeTripPoints = {};
             
             for (const m of months) {
@@ -880,9 +989,9 @@
             let data = dashboardViewData;
             if (state.currentUser) {
                 if (state.currentUser.role === 'manager') {
-                    data = data.filter(e => e.branch === state.currentUser.branch);
+                    data = data.filter(e => String(e.branch) === String(state.currentUser.branch));
                 } else if (state.currentUser.role === 'tech' || state.currentUser.role === 'head_tech') {
-                    data = data.filter(e => e.empCode === state.currentUser.empCode);
+                    data = data.filter(e => String(e.empCode) === String(state.currentUser.empCode));
                 }
             }
 
@@ -943,31 +1052,6 @@
             }
         };
 
-        const accumulateData = (acc, newData) => {
-            newData.forEach(emp => {
-                if (!acc[emp.empCode]) {
-                    acc[emp.empCode] = JSON.parse(JSON.stringify(emp)); 
-                } else {
-                    const e = acc[emp.empCode];
-                    e.target += emp.target;
-                    e.achieved += emp.achieved;
-                    e.newInstall += emp.newInstall;
-                    e.warranty += emp.warranty;
-                    e.outWarranty += emp.outWarranty;
-                    e.partCost += emp.partCost;
-                    e.relocate += emp.relocate;
-                    e.collectInstallment += emp.collectInstallment;
-                    e.amount += emp.amount;
-                    e.branchTotal = emp.branchTotal; // Keep latest branch total
-                    e.points += emp.points;
-                    e.nonCommWork += emp.nonCommWork;
-                    e.commission += emp.commission;
-                    e.salary += emp.salary;
-                    e.totalIncome += emp.totalIncome;
-                }
-            });
-        };
-
         const applyDashboardFilters = async () => {
             const start = document.getElementById('filter-start').value;
             const end = document.getElementById('filter-end').value;
@@ -979,10 +1063,42 @@
             try {
                 let accumulatedData = {};
                 
+                // เริ่มต้นข้อมูลผู้ใช้ทุกคนด้วย 0
+                employees.forEach(emp => {
+                    accumulatedData[emp.empCode] = { ...emp, 
+                        target: 0, achieved: 0, newInstall: 0, warranty: 0, outWarranty: 0, 
+                        partCost: 0, relocate: 0, collectInstallment: 0, amount: 0, 
+                        branchTotal: 0, points: 0, nonCommWork: 0, commission: 0, salary: 0, totalIncome: 0 
+                    };
+                });
+
+                const processTabData = (data) => {
+                    const parsed = parsePerformanceData(data);
+                    parsed.forEach(perf => {
+                        if (accumulatedData[perf.empCode]) {
+                            const e = accumulatedData[perf.empCode];
+                            e.target += perf.target;
+                            e.achieved += perf.achieved;
+                            e.newInstall += perf.newInstall;
+                            e.warranty += perf.warranty;
+                            e.outWarranty += perf.outWarranty;
+                            e.partCost += perf.partCost;
+                            e.relocate += perf.relocate;
+                            e.collectInstallment += perf.collectInstallment;
+                            e.amount += perf.amount;
+                            e.branchTotal = perf.branchTotal; // Keep latest branch total
+                            e.points += perf.points;
+                            e.nonCommWork += perf.nonCommWork;
+                            e.commission += perf.commission;
+                            e.salary += perf.salary;
+                            e.totalIncome += perf.totalIncome;
+                        }
+                    });
+                };
+                
                 if (start === 'sum') {
                     const data = await fetchSheetTabForTrip('sum');
-                    const parsed = parseSheetDataToEmployees(data);
-                    accumulateData(accumulatedData, parsed);
+                    processTabData(data);
                 } else {
                     const startIdx = periodsList.indexOf(start);
                     let endIdx = periodsList.indexOf(end);
@@ -992,8 +1108,7 @@
                     for (const tab of tabsToFetch) {
                         try {
                             const data = await fetchSheetTabForTrip(tab);
-                            const parsed = parseSheetDataToEmployees(data);
-                            accumulateData(accumulatedData, parsed);
+                            processTabData(data);
                         } catch(e) {
                             console.warn("ไม่พบข้อมูลแท็บ:", tab);
                         }
@@ -1043,13 +1158,10 @@
             }
         };
 
-        const changeMonthTab = async (tabName) => {
-            // Obsolete logic kept for compatibility - functionality moved to applyDashboardFilters
-        };
-
         // --- 2. UTILS & DATA FILTERING ---
         const formatMoney = (amt) => new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0 }).format(amt);
         const formatNum = (num) => new Intl.NumberFormat('th-TH').format(num);
+        const formatFlexibleNum = (num) => new Intl.NumberFormat('th-TH', { maximumFractionDigits: 2 }).format(num);
         const generateId = () => Math.max(...employees.map(e => e.id), 0) + 1;
 
         const fireConfetti = () => {
@@ -1236,7 +1348,9 @@
                 document.getElementById('nav-settings').classList.add('hidden');
             }
 
-            populateFilterDropdowns(); // Apply permissions and populate dropdowns on init
+            // เพิ่มส่วนนี้: สั่งให้ระบบซิงค์ข้อมูลทั้งหมดอัตโนมัติทันทีที่เข้าหน้าแรก
+            syncAllData();
+            
             navigate('dashboard');
         };
 
@@ -1312,6 +1426,7 @@
             
             let tInc = 0, tTar = 0, tAch = 0, tPts = 0, tCom = 0;
             let sumNew = 0, sumWar = 0, sumOut = 0;
+            let sumPart = 0, sumReloc = 0, sumInst = 0;
             
             const tbody = document.getElementById('dashboard-table-body');
             tbody.innerHTML = '';
@@ -1324,10 +1439,11 @@
                 tInc += row.totalIncome; tTar += row.target; tAch += row.achieved;
                 tPts += row.points; tCom += row.commission;
                 sumNew += row.newInstall; sumWar += row.warranty; sumOut += row.outWarranty;
+                sumPart += row.partCost; sumReloc += row.relocate; sumInst += row.collectInstallment;
 
                 const missed = row.target > row.achieved ? (row.target - row.achieved) : 0;
                 const missedHtml = missed > 0 
-                    ? `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-bold">${formatNum(missed)}</span>` 
+                    ? `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-bold">${formatFlexibleNum(missed)}</span>` 
                     : `<span class="text-gray-300">-</span>`;
 
                 const isHitTarget = row.achieved >= row.target && row.achieved > 0;
@@ -1338,19 +1454,19 @@
                         <td class="px-4 py-3 font-medium border-r border-gray-100 text-gray-900">${row.name} ${targetBadge}</td>
                         <td class="px-4 py-3 font-mono text-xs text-gray-500">${row.empCode}</td>
                         <td class="px-4 py-3 text-gray-500">${row.branch}</td>
-                        <td class="px-4 py-3 text-right text-gray-500">${formatNum(row.target)}</td>
-                        <td class="px-4 py-3 text-right font-bold ${row.achieved >= row.target ? 'text-green-600':'text-gray-900'}">${formatNum(row.achieved)}</td>
+                        <td class="px-4 py-3 text-right text-gray-500">${formatFlexibleNum(row.target)}</td>
+                        <td class="px-4 py-3 text-right font-bold ${row.achieved >= row.target ? 'text-green-600':'text-gray-900'}">${formatFlexibleNum(row.achieved)}</td>
                         <td class="px-4 py-3 text-right">${missedHtml}</td>
-                        <td class="px-4 py-3 text-right border-l border-gray-100 text-gray-700">${formatNum(row.newInstall)}</td>
-                        <td class="px-4 py-3 text-right text-gray-700">${formatNum(row.warranty)}</td>
-                        <td class="px-4 py-3 text-right text-gray-700">${formatNum(row.outWarranty)}</td>
-                        <td class="px-4 py-3 text-right border-l border-gray-100 text-gray-700">${formatNum(row.partCost)}</td>
-                        <td class="px-4 py-3 text-right text-gray-700">${formatNum(row.relocate || 0)}</td>
-                        <td class="px-4 py-3 text-right text-gray-700">${formatNum(row.collectInstallment || 0)}</td>
+                        <td class="px-4 py-3 text-right border-l border-gray-100 text-gray-700">${formatFlexibleNum(row.newInstall)}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">${formatFlexibleNum(row.warranty)}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">${formatFlexibleNum(row.outWarranty)}</td>
+                        <td class="px-4 py-3 text-right border-l border-gray-100 text-gray-700">${formatFlexibleNum(row.partCost)}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">${formatFlexibleNum(row.relocate || 0)}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">${formatFlexibleNum(row.collectInstallment || 0)}</td>
                         <td class="px-4 py-3 text-right border-l border-gray-200 bg-blue-50/50 font-medium text-blue-700">${formatNum(row.amount)}</td>
                         <td class="px-4 py-3 text-right bg-blue-50/50 text-gray-600">${formatNum(row.branchTotal || 0)}</td>
                         <td class="px-4 py-3 text-right border-l border-gray-200 font-bold text-purple-600">${formatNum(row.points)}</td>
-                        <td class="px-4 py-3 text-right text-gray-500">${formatNum(row.nonCommWork || 0)}</td>
+                        <td class="px-4 py-3 text-right text-gray-500">${formatFlexibleNum(row.nonCommWork || 0)}</td>
                         <td class="px-4 py-3 text-right bg-orange-50/50 font-bold text-orange-600">${formatNum(row.commission)}</td>
                         <td class="px-4 py-3 text-right border-l border-gray-200 text-gray-700">${formatNum(row.salary || 0)}</td>
                         <td class="px-4 py-3 text-right border-l border-green-100 bg-green-50/50 text-green-700 font-bold">${formatNum(row.totalIncome)}</td>
@@ -1389,6 +1505,7 @@
 
             if(charts.perf) charts.perf.destroy();
             if(charts.type) charts.type.destroy();
+            if(charts.detail) charts.detail.destroy();
 
             const ctxPerf = document.getElementById('performanceChart').getContext('2d');
             charts.perf = new Chart(ctxPerf, {
@@ -1412,6 +1529,58 @@
                 },
                 options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins:{ legend: {position:'bottom', font:{family:'Prompt'}} } }
             });
+
+            const ctxDetail = document.getElementById('detailedStatsChart');
+            if(ctxDetail) {
+                charts.detail = new Chart(ctxDetail.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['ติดตั้งใหม่', 'ในประกัน', 'หมดประกัน/บริการ', 'ย้ายมีค่าบริการ', 'ค่าอะไหล่', 'เก็บค่างวด'],
+                        datasets: [
+                            {
+                                label: 'จำนวนงาน (รายการ)',
+                                data: [sumNew, sumWar, sumOut, sumReloc, null, null],
+                                backgroundColor: '#3b82f6',
+                                borderRadius: 6,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'ยอดเงิน (บาท)',
+                                data: [null, null, null, null, sumPart, sumInst],
+                                backgroundColor: '#f59e0b',
+                                borderRadius: 6,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top', labels: { font: { family: 'Prompt' } } },
+                            tooltip: { titleFont: { family: 'Prompt' }, bodyFont: { family: 'Prompt' } }
+                        },
+                        scales: {
+                            x: { ticks: { font: { family: 'Prompt' } } },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: { display: true, text: 'จำนวนงาน (รายการ)', font: { family: 'Prompt', weight: 'bold' } },
+                                ticks: { font: { family: 'Prompt' } }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: { display: true, text: 'ยอดเงิน (บาท)', font: { family: 'Prompt', weight: 'bold' } },
+                                ticks: { font: { family: 'Prompt' } },
+                                grid: { drawOnChartArea: false }
+                            }
+                        }
+                    }
+                });
+            }
         };
 
         const renderEmployeeTab = () => {
@@ -1431,7 +1600,7 @@
                     <td class="px-6 py-4 font-mono text-gray-500">${emp.pin}</td>
                     <td class="px-6 py-4 text-right">
                         <button onclick="editEmployee(${emp.id})" class="text-blue-600 hover:text-blue-800 p-1"><i class="ph ph-pencil-simple"></i></button>
-                        ${emp.id !== state.currentUser.id ? `<button onclick="confirmDelete(${emp.id})" class="text-red-600 hover:text-red-800 p-1 ml-2"><i class="ph ph-trash"></i></button>` : ''}
+                        ${emp.id !== state.currentUser?.id ? `<button onclick="confirmDelete(${emp.id})" class="text-red-600 hover:text-red-800 p-1 ml-2"><i class="ph ph-trash"></i></button>` : ''}
                     </td>
                 </tr>
             `).join('');
@@ -1518,14 +1687,14 @@
         const renderTrip = () => {
             const visibleEmp = getVisibleEmployees();
             const techs = visibleEmp.filter(e => e.role === 'tech' || e.role === 'head_tech');
-            const target = parseInt(tripSettings.targetPoints) || 0;
+            const target = parseInt(window.tripSettings.targetPoints) || 0;
             
-            document.getElementById('trip-banner-title').innerText = tripSettings.name;
+            document.getElementById('trip-banner-title').innerText = window.tripSettings.name;
             document.getElementById('trip-banner-target').innerText = formatNum(target);
             
             const bannerContainer = document.getElementById('trip-banner-container');
-            if(tripSettings.imageUrl && tripSettings.imageUrl.trim() !== "") {
-                bannerContainer.style.backgroundImage = `url('${tripSettings.imageUrl}')`;
+            if(window.tripSettings.imageUrl && window.tripSettings.imageUrl.trim() !== "") {
+                bannerContainer.style.backgroundImage = `url('${window.tripSettings.imageUrl}')`;
             } else {
                 bannerContainer.style.backgroundImage = `none`;
                 bannerContainer.className = "bg-gradient-to-br from-indigo-900 via-blue-800 to-brand-600 rounded-3xl p-8 sm:p-10 text-white mb-8 relative overflow-hidden shadow-2xl bg-cover bg-center border border-blue-400/20";
@@ -1533,12 +1702,12 @@
             
             const formatDate = (ds) => new Date(ds).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
             
-            const months = getMonthsBetweenDates(tripSettings.startDate, tripSettings.endDate);
+            const months = getMonthsBetweenDates(window.tripSettings.startDate, window.tripSettings.endDate);
             const monthsText = months.length > 1 ? `(รวมยอดจากแท็บ ${months[0]} ถึง ${months[months.length-1]})` : `(ยอดจากแท็บ ${months[0]})`;
-            document.getElementById('trip-banner-date').innerText = `${formatDate(tripSettings.startDate)} - ${formatDate(tripSettings.endDate)} ${monthsText}`;
+            document.getElementById('trip-banner-date').innerText = `${formatDate(window.tripSettings.startDate)} - ${formatDate(window.tripSettings.endDate)} ${monthsText}`;
 
             const today = new Date();
-            const endDate = new Date(tripSettings.endDate);
+            const endDate = new Date(window.tripSettings.endDate);
             const timeDiff = endDate.getTime() - today.getTime();
             const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
             const isEnded = daysLeft <= 0;
@@ -1629,11 +1798,11 @@
 
         // 5.5 System Settings
         const renderSettings = () => {
-            document.getElementById('set-trip-name').value = tripSettings.name;
-            document.getElementById('set-trip-target').value = tripSettings.targetPoints;
-            document.getElementById('set-trip-start').value = tripSettings.startDate;
-            document.getElementById('set-trip-end').value = tripSettings.endDate;
-            document.getElementById('set-trip-image').value = tripSettings.imageUrl || '';
+            document.getElementById('set-trip-name').value = window.tripSettings.name;
+            document.getElementById('set-trip-target').value = window.tripSettings.targetPoints;
+            document.getElementById('set-trip-start').value = window.tripSettings.startDate;
+            document.getElementById('set-trip-end').value = window.tripSettings.endDate;
+            document.getElementById('set-trip-image').value = window.tripSettings.imageUrl || '';
         };
 
         const saveSettings = async () => {
@@ -1648,13 +1817,18 @@
                 return;
             }
 
-            tripSettings = {
+            window.tripSettings = {
                 name,
                 targetPoints: parseInt(targetPoints),
                 startDate,
                 endDate,
                 imageUrl
             };
+
+            // บันทึกไปยัง Firebase
+            if (window.saveFirebaseSettings) {
+                await window.saveFirebaseSettings(window.tripSettings);
+            }
 
             showModal('success', 'บันทึกสำเร็จ', 'ตั้งค่าแคมเปญท่องเที่ยวเรียบร้อยแล้ว');
             
@@ -1674,11 +1848,11 @@
             document.getElementById('emp-id').value = emp ? emp.id : '';
             document.getElementById('emp-code').value = emp ? emp.empCode : '';
             document.getElementById('emp-name').value = emp ? emp.name : '';
-            document.getElementById('emp-branch').value = emp ? emp.branch : (state.currentUser.role === 'manager' ? state.currentUser.branch : '');
+            document.getElementById('emp-branch').value = emp ? emp.branch : (state.currentUser?.role === 'manager' ? state.currentUser.branch : '');
             document.getElementById('emp-pin').value = emp ? emp.pin : '';
             document.getElementById('emp-role').value = emp ? emp.role : 'tech';
 
-            if (state.currentUser.role === 'manager' && !emp) {
+            if (state.currentUser?.role === 'manager' && !emp) {
                 document.getElementById('emp-branch').disabled = true;
                 document.getElementById('emp-branch').classList.add('bg-gray-100');
             } else {
@@ -1765,9 +1939,9 @@
                         if (name) {
                             employees.push({
                                 id: generateId(),
-                                empCode: row['EmpCode'] || row['รหัสพนักงาน'] || `EMP${generateId()}`,
+                                empCode: String(row['EmpCode'] || row['รหัสพนักงาน'] || `EMP${generateId()}`),
                                 name: name,
-                                branch: row['Branch'] || row['สาขา'] || (state.currentUser.role === 'manager' ? state.currentUser.branch : 'ไม่ระบุ'),
+                                branch: row['Branch'] || row['สาขา'] || (state.currentUser?.role === 'manager' ? state.currentUser.branch : 'ไม่ระบุ'),
                                 role: roleMap,
                                 pin: String(row['PIN'] || '0000').padStart(4, '0'),
                                 target: row['Target'] || 0, achieved: row['Achieved'] || 0, newInstall: 0, warranty: 0, outWarranty: 0, partCost: 0, amount: 0, points: row['Points'] || 0, commission: 0, totalIncome: 0
