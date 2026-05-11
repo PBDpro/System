@@ -215,97 +215,102 @@
                         <p class="text-gray-500 text-sm mt-1">ข้อมูลสรุปยอดงานของทีมช่าง (กรองตามช่วงเวลา สาขา และพนักงาน)</p>
                     </div>
                     
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 mb-6">
-                        <div class="flex flex-col xl:flex-row gap-4 xl:items-end">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1 w-full">
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-500 mb-1">ตั้งแต่รอบ (From)</label>
-                                    <select id="filter-start" class="w-full bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" onchange="checkRangeSum()">
-                                        <option value="sum">สรุปผลรวม (sum)</option>
-                                        <option value="JAN26P1">ม.ค. 26 P1</option>
-                                        <option value="JAN26P2">ม.ค. 26 P2</option>
-                                        <option value="FEB26P1">ก.พ. 26 P1</option>
-                                        <option value="FEB26P2">ก.พ. 26 P2</option>
-                                        <option value="MAR26P1">มี.ค. 26 P1</option>
-                                        <option value="MAR26P2">มี.ค. 26 P2</option>
-                                        <option value="APR26P1">เม.ย. 26 P1</option>
-                                        <option value="APR26P2">เม.ย. 26 P2</option>
-                                        <option value="MAY26P1">พ.ค. 26 P1</option>
-                                        <option value="MAY26P2">พ.ค. 26 P2</option>
-                                        <option value="JUN26P1">มิ.ย. 26 P1</option>
-                                        <option value="JUN26P2">มิ.ย. 26 P2</option>
-                                        <option value="JUL26P1">ก.ค. 26 P1</option>
-                                        <option value="JUL26P2">ก.ค. 26 P2</option>
-                                        <option value="AUG26P1">ส.ค. 26 P1</option>
-                                        <option value="AUG26P2">ส.ค. 26 P2</option>
-                                        <option value="SEP26P1">ก.ย. 26 P1</option>
-                                        <option value="SEP26P2">ก.ย. 26 P2</option>
-                                        <option value="OCT26P1">ต.ค. 26 P1</option>
-                                        <option value="OCT26P2">ต.ค. 26 P2</option>
-                                        <option value="NOV26P1">พ.ย. 26 P1</option>
-                                        <option value="NOV26P2">พ.ย. 26 P2</option>
-                                        <option value="DEC26P1">ธ.ค. 26 P1</option>
-                                        <option value="DEC26P2">ธ.ค. 26 P2</option>
-                                    </select>
+                    <div id="dashboard-filter-slot">
+                        <!-- Compact Filter Bar -->
+                        <div id="global-filter-bar" class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-6 relative">
+                            <div class="flex flex-col lg:flex-row gap-3 items-end">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 flex-1 w-full">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 mb-1">ตั้งแต่รอบ (From)</label>
+                                        <select id="filter-start" class="w-full bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none h-[38px]" onchange="checkRangeSum()">
+                                            <option value="sum">สรุปผลรวม (sum)</option>
+                                            <option value="JAN26P1">ม.ค. 26 P1</option>
+                                            <option value="JAN26P2">ม.ค. 26 P2</option>
+                                            <option value="FEB26P1">ก.พ. 26 P1</option>
+                                            <option value="FEB26P2">ก.พ. 26 P2</option>
+                                            <option value="MAR26P1">มี.ค. 26 P1</option>
+                                            <option value="MAR26P2">มี.ค. 26 P2</option>
+                                            <option value="APR26P1">เม.ย. 26 P1</option>
+                                            <option value="APR26P2">เม.ย. 26 P2</option>
+                                            <option value="MAY26P1">พ.ค. 26 P1</option>
+                                            <option value="MAY26P2">พ.ค. 26 P2</option>
+                                            <option value="JUN26P1">มิ.ย. 26 P1</option>
+                                            <option value="JUN26P2">มิ.ย. 26 P2</option>
+                                            <option value="JUL26P1">ก.ค. 26 P1</option>
+                                            <option value="JUL26P2">ก.ค. 26 P2</option>
+                                            <option value="AUG26P1">ส.ค. 26 P1</option>
+                                            <option value="AUG26P2">ส.ค. 26 P2</option>
+                                            <option value="SEP26P1">ก.ย. 26 P1</option>
+                                            <option value="SEP26P2">ก.ย. 26 P2</option>
+                                            <option value="OCT26P1">ต.ค. 26 P1</option>
+                                            <option value="OCT26P2">ต.ค. 26 P2</option>
+                                            <option value="NOV26P1">พ.ย. 26 P1</option>
+                                            <option value="NOV26P2">พ.ย. 26 P2</option>
+                                            <option value="DEC26P1">ธ.ค. 26 P1</option>
+                                            <option value="DEC26P2">ธ.ค. 26 P2</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 mb-1">ถึงรอบ (To)</label>
+                                        <select id="filter-end" class="w-full bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50 h-[38px]" disabled>
+                                            <option value="sum">สรุปผลรวม (sum)</option>
+                                            <option value="JAN26P1">ม.ค. 26 P1</option>
+                                            <option value="JAN26P2">ม.ค. 26 P2</option>
+                                            <option value="FEB26P1">ก.พ. 26 P1</option>
+                                            <option value="FEB26P2">ก.พ. 26 P2</option>
+                                            <option value="MAR26P1">มี.ค. 26 P1</option>
+                                            <option value="MAR26P2">มี.ค. 26 P2</option>
+                                            <option value="APR26P1">เม.ย. 26 P1</option>
+                                            <option value="APR26P2">เม.ย. 26 P2</option>
+                                            <option value="MAY26P1">พ.ค. 26 P1</option>
+                                            <option value="MAY26P2">พ.ค. 26 P2</option>
+                                            <option value="JUN26P1">มิ.ย. 26 P1</option>
+                                            <option value="JUN26P2">มิ.ย. 26 P2</option>
+                                            <option value="JUL26P1">ก.ค. 26 P1</option>
+                                            <option value="JUL26P2">ก.ค. 26 P2</option>
+                                            <option value="AUG26P1">ส.ค. 26 P1</option>
+                                            <option value="AUG26P2">ส.ค. 26 P2</option>
+                                            <option value="SEP26P1">ก.ย. 26 P1</option>
+                                            <option value="SEP26P2">ก.ย. 26 P2</option>
+                                            <option value="OCT26P1">ต.ค. 26 P1</option>
+                                            <option value="OCT26P2">ต.ค. 26 P2</option>
+                                            <option value="NOV26P1">พ.ย. 26 P1</option>
+                                            <option value="NOV26P2">พ.ย. 26 P2</option>
+                                            <option value="DEC26P1">ธ.ค. 26 P1</option>
+                                            <option value="DEC26P2">ธ.ค. 26 P2</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 mb-1">สาขา</label>
+                                        <select id="filter-branch" class="w-full bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50 h-[38px]" onchange="updateEmpDropdown(); updateCurrentView();">
+                                            <option value="all">ทุกสาขา</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 mb-1">พนักงาน</label>
+                                        <select id="filter-emp" class="w-full bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50 h-[38px]" onchange="updateCurrentView()">
+                                            <option value="all">ทุกคน</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-500 mb-1">ถึงรอบ (To)</label>
-                                    <select id="filter-end" class="w-full bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" disabled>
-                                        <option value="sum">สรุปผลรวม (sum)</option>
-                                        <option value="JAN26P1">ม.ค. 26 P1</option>
-                                        <option value="JAN26P2">ม.ค. 26 P2</option>
-                                        <option value="FEB26P1">ก.พ. 26 P1</option>
-                                        <option value="FEB26P2">ก.พ. 26 P2</option>
-                                        <option value="MAR26P1">มี.ค. 26 P1</option>
-                                        <option value="MAR26P2">มี.ค. 26 P2</option>
-                                        <option value="APR26P1">เม.ย. 26 P1</option>
-                                        <option value="APR26P2">เม.ย. 26 P2</option>
-                                        <option value="MAY26P1">พ.ค. 26 P1</option>
-                                        <option value="MAY26P2">พ.ค. 26 P2</option>
-                                        <option value="JUN26P1">มิ.ย. 26 P1</option>
-                                        <option value="JUN26P2">มิ.ย. 26 P2</option>
-                                        <option value="JUL26P1">ก.ค. 26 P1</option>
-                                        <option value="JUL26P2">ก.ค. 26 P2</option>
-                                        <option value="AUG26P1">ส.ค. 26 P1</option>
-                                        <option value="AUG26P2">ส.ค. 26 P2</option>
-                                        <option value="SEP26P1">ก.ย. 26 P1</option>
-                                        <option value="SEP26P2">ก.ย. 26 P2</option>
-                                        <option value="OCT26P1">ต.ค. 26 P1</option>
-                                        <option value="OCT26P2">ต.ค. 26 P2</option>
-                                        <option value="NOV26P1">พ.ย. 26 P1</option>
-                                        <option value="NOV26P2">พ.ย. 26 P2</option>
-                                        <option value="DEC26P1">ธ.ค. 26 P1</option>
-                                        <option value="DEC26P2">ธ.ค. 26 P2</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-500 mb-1">สาขา</label>
-                                    <select id="filter-branch" class="w-full bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" onchange="updateEmpDropdown(); renderDashboard();">
-                                        <option value="all">ทุกสาขา</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-500 mb-1">พนักงาน</label>
-                                    <select id="filter-emp" class="w-full bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" onchange="renderDashboard()">
-                                        <option value="all">ทุกคน</option>
-                                    </select>
+                                
+                                <div class="flex gap-2 w-full lg:w-auto shrink-0 mt-3 lg:mt-0 items-center justify-end">
+                                    <button onclick="applyDashboardFilters()" class="flex-1 lg:flex-none bg-brand-600 border border-brand-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-brand-700 flex items-center justify-center gap-2 shadow-sm transition h-[38px]" title="ดึงข้อมูลและคำนวณตามช่วงเวลาที่เลือก">
+                                        <i class="ph ph-funnel text-lg" id="sync-icon-dash"></i> 
+                                        <span>ดึงข้อมูล</span>
+                                    </button>
+                                    <button onclick="syncAllData()" class="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50 flex items-center justify-center shadow-sm transition h-[38px]" title="ซิงค์ข้อมูลใหม่ทั้งหมดจาก Sheet">
+                                        <i class="ph ph-arrows-clockwise text-brand-600 text-lg" id="sync-all-icon"></i>
+                                    </button>
+                                    <button onclick="exportDashboardToExcel()" class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-1.5 rounded-lg text-sm hover:bg-emerald-100 flex items-center justify-center shadow-sm transition h-[38px]" title="ส่งออกข้อมูลตารางเป็น Excel">
+                                        <i class="ph ph-file-xls text-lg"></i> <span class="hidden sm:inline ml-1 font-medium">Export</span>
+                                    </button>
                                 </div>
                             </div>
-                            
-                            <div class="flex gap-2 w-full xl:w-auto shrink-0 mt-4 xl:mt-0">
-                                <button onclick="applyDashboardFilters()" class="flex-1 xl:flex-none bg-brand-600 border border-brand-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-brand-700 flex items-center justify-center gap-2 shadow-sm transition" title="ดึงข้อมูลและคำนวณตามช่วงเวลาที่เลือก">
-                                    <i class="ph ph-funnel text-lg" id="sync-icon-dash"></i> 
-                                    <span>ดึงข้อมูล</span>
-                                </button>
-                                <button onclick="syncAllData()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50 flex items-center justify-center shadow-sm transition" title="ซิงค์ข้อมูลใหม่ทั้งหมดจาก Sheet">
-                                    <i class="ph ph-arrows-clockwise text-brand-600 text-lg" id="sync-all-icon"></i>
-                                </button>
-                                <button onclick="exportDashboardToExcel()" class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2.5 rounded-lg text-sm hover:bg-emerald-100 flex items-center justify-center shadow-sm transition" title="ส่งออกข้อมูลตารางเป็น Excel">
-                                    <i class="ph ph-file-xls text-lg"></i> <span class="hidden md:inline ml-2 font-medium">Export</span>
-                                </button>
+                            <div class="flex justify-end mt-2">
+                                <div id="sync-status" class="text-[11px] text-gray-400">สถานะ: รอการเชื่อมต่อ...</div>
                             </div>
                         </div>
-                        <div id="sync-status" class="text-[10px] text-gray-400 mt-3 text-right">สถานะ: รอการเชื่อมต่อ...</div>
                     </div>
                     
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -332,7 +337,7 @@
                             <p class="text-sm text-gray-500 relative z-10">ค่าคอมมิชชั่นรวม</p>
                             <h3 class="text-2xl font-bold text-orange-500 mt-1 relative z-10" id="kpi-total-comm">฿0</h3>
                         </div>
-                        <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-sm border border-yellow-200 p-5 relative overflow-hidden hover:-translate-y-1 hover:shadow-md transition-all duration-300">
+                        <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-sm border border-yellow-200 p-5 relative overflow-hidden hover:-translate-y-1 hover:shadow-md transition-all duration-300 cursor-pointer" onclick="triggerStarEffect()">
                             <div class="absolute right-0 bottom-0 opacity-20 text-yellow-500"><i class="ph-fill ph-star text-6xl transform translate-x-2 translate-y-2"></i></div>
                             <p class="text-sm text-yellow-800 font-bold relative z-10 flex items-center gap-1"><i class="ph-fill ph-medal text-lg"></i> ดาวเด่น (MVP)</p>
                             <div id="dashboard-mvp" class="mt-2 relative z-10">
@@ -385,6 +390,8 @@
                         <h2 class="text-2xl font-bold text-gray-900">สรุปยอดตามสาขา (Branch Summary)</h2>
                         <p class="text-gray-500 text-sm mt-1">เปรียบเทียบผลงานและรายได้รวมแบ่งตามสาขา</p>
                     </div>
+                    
+                    <div id="reports-filter-slot"></div>
                     
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
@@ -779,7 +786,7 @@
             const statusEl = document.getElementById('sync-status');
             if(statusEl) {
                 statusEl.innerText = text;
-                statusEl.className = isSuccess ? 'text-[10px] text-green-500 mt-1 text-right' : 'text-[10px] text-orange-500 mt-1 text-right';
+                statusEl.className = isSuccess ? 'text-[11px] text-green-500 mt-1.5 text-right' : 'text-[11px] text-orange-500 mt-1.5 text-right';
             }
         };
 
@@ -1327,6 +1334,19 @@
                 plane.remove();
             }, 1500);
         };
+        
+        const triggerStarEffect = () => {
+            confetti({
+                particleCount: 120,
+                spread: 100,
+                origin: { y: 0.1 },
+                colors: ['#FBBF24', '#F59E0B', '#D97706', '#FDE68A'],
+                shapes: ['star', 'circle'],
+                gravity: 1.2,
+                ticks: 200,
+                scalar: 1.2
+            });
+        };
 
         const getVisibleEmployees = () => {
             if (!state.currentUser) return [];
@@ -1496,9 +1516,9 @@
                 sidebar.classList.toggle('md:-ml-64');
                 if (headerBrand) {
                     if (sidebar.classList.contains('md:-ml-64')) {
-                        headerBrand.classList.remove('md:opacity-0'); // แสดงชื่อแบรนด์ถ้าซ่อน Sidebar
+                        headerBrand.classList.remove('md:opacity-0'); 
                     } else {
-                        headerBrand.classList.add('md:opacity-0'); // ซ่อนชื่อแบรนด์ถ้าเปิด Sidebar ไว้
+                        headerBrand.classList.add('md:opacity-0'); 
                     }
                 }
             }
@@ -1530,6 +1550,11 @@
             navigate('dashboard');
         };
 
+        const updateCurrentView = () => {
+            if (state.currentView === 'dashboard') renderDashboard();
+            if (state.currentView === 'reports') renderReports();
+        };
+
         const navigate = (viewId) => {
             state.currentView = viewId;
             
@@ -1557,6 +1582,15 @@
                     section.classList.toggle('hidden', id !== viewId);
                 }
             });
+
+            const filterBar = document.getElementById('global-filter-bar');
+            if (filterBar) {
+                if (viewId === 'dashboard') {
+                    document.getElementById('dashboard-filter-slot').appendChild(filterBar);
+                } else if (viewId === 'reports') {
+                    document.getElementById('reports-filter-slot').appendChild(filterBar);
+                }
+            }
 
             if (viewId === 'dashboard') renderDashboard();
             if (viewId === 'reports') renderReports();
@@ -1879,6 +1913,24 @@
             
             if (state.currentUser && state.currentUser.role === 'manager') {
                 data = data.filter(e => String(e.branch) === String(state.currentUser.branch));
+            }
+
+            // Apply selected UI filters
+            const selBranch = document.getElementById('filter-branch').value;
+            const selEmp = document.getElementById('filter-emp').value;
+
+            if (selBranch && selBranch !== 'all') {
+                data = data.filter(e => String(e.branch) === String(selBranch));
+            }
+            if (selEmp && selEmp !== 'all') {
+                data = data.filter(e => String(e.empCode) === String(selEmp));
+            }
+
+            if (state.dashboardSearchText) {
+                data = data.filter(e => 
+                    e.name.toLowerCase().includes(state.dashboardSearchText) || 
+                    e.empCode.toLowerCase().includes(state.dashboardSearchText)
+                );
             }
 
             const techs = data.filter(e => e.role === 'tech' || e.role === 'head_tech');
@@ -2334,6 +2386,17 @@
         };
 
         const exportDashboardToExcel = () => {
+            if (state.currentView === 'reports') {
+                const table = document.querySelector('#view-reports table');
+                if (!table) return;
+                const wb = XLSX.utils.table_to_book(table, {sheet: "Branch_Summary"});
+                const start = document.getElementById('filter-start').value;
+                const end = document.getElementById('filter-end').value;
+                const rangeStr = start === 'sum' ? 'SUM' : (start === end ? start : `${start}_to_${end}`);
+                XLSX.writeFile(wb, `PBD_Branch_Summary_${rangeStr}.xlsx`);
+                return;
+            }
+
             let data = dashboardViewData;
             
             // Check roles
