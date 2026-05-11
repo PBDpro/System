@@ -78,6 +78,31 @@
             color: #10b981; /* emerald-500 */
             filter: drop-shadow(0 10px 15px rgba(0,0,0,0.3));
         }
+        
+        /* Card Zoom Levels */
+        .zoom-minus-1 .text-\[10px\] { font-size: 8px !important; line-height: 10px !important; }
+        .zoom-minus-1 .text-xs { font-size: 10px !important; line-height: 14px !important; }
+        .zoom-minus-1 .text-sm { font-size: 0.75rem !important; line-height: 1rem !important; }
+        .zoom-minus-1 .text-base { font-size: 0.875rem !important; line-height: 1.25rem !important; }
+        .zoom-minus-1 .text-lg { font-size: 1rem !important; line-height: 1.5rem !important; }
+        .zoom-minus-1 .text-xl { font-size: 1.125rem !important; line-height: 1.75rem !important; }
+        .zoom-minus-1 .text-2xl { font-size: 1.25rem !important; line-height: 1.75rem !important; }
+
+        .zoom-plus-1 .text-\[10px\] { font-size: 0.75rem !important; line-height: 1rem !important; }
+        .zoom-plus-1 .text-xs { font-size: 0.875rem !important; line-height: 1.25rem !important; }
+        .zoom-plus-1 .text-sm { font-size: 1rem !important; line-height: 1.5rem !important; }
+        .zoom-plus-1 .text-base { font-size: 1.125rem !important; line-height: 1.75rem !important; }
+        .zoom-plus-1 .text-lg { font-size: 1.25rem !important; line-height: 1.75rem !important; }
+        .zoom-plus-1 .text-xl { font-size: 1.5rem !important; line-height: 2rem !important; }
+        .zoom-plus-1 .text-2xl { font-size: 1.875rem !important; line-height: 2.25rem !important; }
+
+        .zoom-plus-2 .text-\[10px\] { font-size: 0.875rem !important; line-height: 1.25rem !important; }
+        .zoom-plus-2 .text-xs { font-size: 1rem !important; line-height: 1.5rem !important; }
+        .zoom-plus-2 .text-sm { font-size: 1.125rem !important; line-height: 1.75rem !important; }
+        .zoom-plus-2 .text-base { font-size: 1.25rem !important; line-height: 1.75rem !important; }
+        .zoom-plus-2 .text-lg { font-size: 1.5rem !important; line-height: 2rem !important; }
+        .zoom-plus-2 .text-xl { font-size: 1.875rem !important; line-height: 2.25rem !important; }
+        .zoom-plus-2 .text-2xl { font-size: 2.25rem !important; line-height: 2.5rem !important; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen overflow-hidden flex font-sans">
@@ -334,7 +359,14 @@
 
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div class="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <h3 class="font-bold text-lg">รายละเอียดรายบุคคล</h3>
+                            <div class="flex items-center gap-3">
+                                <h3 class="font-bold text-lg">รายละเอียดรายบุคคล</h3>
+                                <div class="flex items-center bg-gray-100/80 border border-gray-200 rounded-lg p-0.5 shadow-inner">
+                                    <button onclick="changeCardZoom(-1)" class="w-7 h-7 flex items-center justify-center hover:bg-white hover:shadow-sm text-gray-600 rounded-md transition" title="ลดขนาดอักษร"><span class="font-bold text-xs">A-</span></button>
+                                    <div class="w-px h-4 bg-gray-300 mx-0.5"></div>
+                                    <button onclick="changeCardZoom(1)" class="w-7 h-7 flex items-center justify-center hover:bg-white hover:shadow-sm text-gray-600 rounded-md transition" title="เพิ่มขนาดอักษร"><span class="font-bold text-sm">A+</span></button>
+                                </div>
+                            </div>
                             <div class="relative w-full sm:w-64">
                                 <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                                 <input type="text" id="dashboard-search-input" onkeyup="handleDashboardSearch(event)" placeholder="ค้นหาชื่อ, รหัส..." class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-shadow">
@@ -690,7 +722,8 @@
             inputPin: '',
             leaderboardHalf: 1,
             hasLoadedLeaderboard: false,
-            dashboardSearchText: ''
+            dashboardSearchText: '',
+            cardZoom: 0
         };
 
         // Dashboard filtering data
@@ -1543,6 +1576,20 @@
         };
 
         // --- 5. RENDER FUNCTIONS ---
+        const changeCardZoom = (step) => {
+            state.cardZoom += step;
+            if (state.cardZoom < -1) state.cardZoom = -1;
+            if (state.cardZoom > 2) state.cardZoom = 2;
+            
+            const container = document.getElementById('dashboard-cards-container');
+            if (!container) return;
+            
+            container.classList.remove('zoom-minus-1', 'zoom-plus-1', 'zoom-plus-2');
+            if (state.cardZoom === -1) container.classList.add('zoom-minus-1');
+            else if (state.cardZoom === 1) container.classList.add('zoom-plus-1');
+            else if (state.cardZoom === 2) container.classList.add('zoom-plus-2');
+        };
+
         const handleDashboardSearch = (e) => {
             state.dashboardSearchText = e.target.value.toLowerCase();
             renderDashboard();
@@ -1619,100 +1666,100 @@
                     : `<span class="text-gray-400">-</span>`;
 
                 const isHitTarget = row.achieved >= row.target && row.achieved > 0;
-                const targetBadge = isHitTarget ? `<span class="inline-flex items-center gap-0.5 ml-2 bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full border border-green-200 shadow-sm whitespace-nowrap"><i class="ph-fill ph-star"></i> ทะลุเป้า</span>` : '';
+                const targetBadge = isHitTarget ? `<span class="inline-flex items-center gap-0.5 ml-2 bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full border border-green-200 shadow-sm whitespace-nowrap"><i class="ph-fill ph-star"></i> ทะลุเป้า</span>` : '';
 
                 cardContainer.innerHTML += `
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 hover:shadow-md hover:border-brand-300 transition-all duration-300 flex flex-col relative overflow-hidden group">
                         <!-- Header -->
                         <div class="flex items-center gap-3 mb-4">
-                            <div class="w-12 h-12 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-xl border border-brand-100 shrink-0">
+                            <div class="w-14 h-14 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-2xl border border-brand-100 shrink-0">
                                 ${row.name.charAt(0)}
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center justify-between gap-1">
-                                    <h4 class="font-bold text-gray-900 text-base truncate" title="${row.name}">${row.name}</h4>
+                                    <h4 class="font-bold text-gray-900 text-lg truncate" title="${row.name}">${row.name}</h4>
                                     ${targetBadge}
                                 </div>
-                                <p class="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><i class="ph-fill ph-map-pin"></i> ${row.branch} <span class="text-gray-300">|</span> ${row.empCode}</p>
+                                <p class="text-sm text-gray-500 flex items-center gap-1 mt-0.5"><i class="ph-fill ph-map-pin"></i> ${row.branch} <span class="text-gray-300">|</span> ${row.empCode}</p>
                             </div>
                         </div>
 
                         <!-- Main KPI -->
                         <div class="grid grid-cols-3 gap-2 mb-4 bg-gray-50 rounded-xl p-3 border border-gray-100/50">
                             <div class="text-center">
-                                <p class="text-[10px] text-gray-500 font-medium mb-0.5">ตั้งเป้า</p>
-                                <p class="font-bold text-gray-700 text-sm">${formatFlexibleNum(row.target)}</p>
+                                <p class="text-xs text-gray-500 font-medium mb-1">ตั้งเป้า</p>
+                                <p class="font-bold text-gray-700 text-lg">${formatFlexibleNum(row.target)}</p>
                             </div>
                             <div class="text-center border-l border-r border-gray-200/60">
-                                <p class="text-[10px] text-gray-500 font-medium mb-0.5">ทำได้</p>
-                                <p class="font-bold text-sm ${row.achieved >= row.target ? 'text-green-600' : 'text-gray-900'}">${formatFlexibleNum(row.achieved)}</p>
+                                <p class="text-xs text-gray-500 font-medium mb-1">ทำได้</p>
+                                <p class="font-bold text-lg ${row.achieved >= row.target ? 'text-green-600' : 'text-gray-900'}">${formatFlexibleNum(row.achieved)}</p>
                             </div>
                             <div class="text-center">
-                                <p class="text-[10px] text-gray-500 font-medium mb-0.5">พลาดเป้า</p>
-                                <p class="text-sm">${missedHtml}</p>
+                                <p class="text-xs text-gray-500 font-medium mb-1">พลาดเป้า</p>
+                                <p class="text-lg">${missedHtml}</p>
                             </div>
                         </div>
 
                         <!-- Work Details -->
-                        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs mb-5">
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-5">
                             <div class="flex justify-between border-b border-dashed border-gray-100 pb-1.5">
                                 <span class="text-gray-500">ติดตั้งใหม่</span>
-                                <span class="font-semibold text-gray-700">${formatFlexibleNum(row.newInstall)}</span>
+                                <span class="font-bold text-gray-700">${formatFlexibleNum(row.newInstall)}</span>
                             </div>
                             <div class="flex justify-between border-b border-dashed border-gray-100 pb-1.5">
                                 <span class="text-gray-500">ค่าอะไหล่</span>
-                                <span class="font-semibold text-gray-700">${formatFlexibleNum(row.partCost)}</span>
+                                <span class="font-bold text-gray-700">${formatFlexibleNum(row.partCost)}</span>
                             </div>
                             <div class="flex justify-between border-b border-dashed border-gray-100 pb-1.5">
                                 <span class="text-gray-500">ในประกัน</span>
-                                <span class="font-semibold text-gray-700">${formatFlexibleNum(row.warranty)}</span>
+                                <span class="font-bold text-gray-700">${formatFlexibleNum(row.warranty)}</span>
                             </div>
                             <div class="flex justify-between border-b border-dashed border-gray-100 pb-1.5">
                                 <span class="text-gray-500">ย้าย/บริการ</span>
-                                <span class="font-semibold text-gray-700">${formatFlexibleNum(row.relocate || 0)}</span>
+                                <span class="font-bold text-gray-700">${formatFlexibleNum(row.relocate || 0)}</span>
                             </div>
                             <div class="flex justify-between border-b border-dashed border-gray-100 pb-1.5">
                                 <span class="text-gray-500">หมดประกัน</span>
-                                <span class="font-semibold text-gray-700">${formatFlexibleNum(row.outWarranty)}</span>
+                                <span class="font-bold text-gray-700">${formatFlexibleNum(row.outWarranty)}</span>
                             </div>
                             <div class="flex justify-between border-b border-dashed border-gray-100 pb-1.5">
                                 <span class="text-gray-500">เก็บค่างวด</span>
-                                <span class="font-semibold text-gray-700">${formatFlexibleNum(row.collectInstallment || 0)}</span>
+                                <span class="font-bold text-gray-700">${formatFlexibleNum(row.collectInstallment || 0)}</span>
                             </div>
                             <div class="flex justify-between border-b border-dashed border-gray-100 pb-1.5 col-span-2">
                                 <span class="text-gray-500">งานไม่คิดคอมมิชชั่น</span>
-                                <span class="font-semibold text-gray-700">${formatFlexibleNum(row.nonCommWork || 0)}</span>
+                                <span class="font-bold text-gray-700">${formatFlexibleNum(row.nonCommWork || 0)}</span>
                             </div>
                         </div>
 
                         <!-- Financials -->
-                        <div class="mt-auto space-y-2">
-                            <div class="flex justify-between items-center bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-100/50">
-                                <span class="text-blue-800/70 text-xs font-medium">ยอดเงิน / รวมสาขา</span>
+                        <div class="mt-auto space-y-2.5">
+                            <div class="flex flex-wrap justify-between items-center gap-1 bg-blue-50/50 px-4 py-2.5 rounded-lg border border-blue-100/50">
+                                <span class="text-blue-800/70 text-sm font-medium">ยอดเงิน / รวมสาขา</span>
                                 <div class="text-right">
-                                    <span class="font-bold text-blue-700 text-sm">${formatNum(row.amount)}</span>
-                                    <span class="text-[10px] text-blue-300 mx-1">|</span>
-                                    <span class="text-gray-500 text-xs">${formatNum(row.branchTotal || 0)}</span>
+                                    <span class="font-bold text-blue-700 text-base">${formatNum(row.amount)}</span>
+                                    <span class="text-xs text-blue-300 mx-1">|</span>
+                                    <span class="text-gray-500 text-sm">${formatNum(row.branchTotal || 0)}</span>
                                 </div>
                             </div>
                             
-                            <div class="flex justify-between items-center bg-purple-50/50 px-3 py-2 rounded-lg border border-purple-100/50">
-                                <span class="text-purple-800/70 text-xs font-medium">พ้อยสะสม</span>
-                                <span class="font-bold text-purple-600 text-sm">${formatNum(row.points)}</span>
+                            <div class="flex flex-wrap justify-between items-center gap-1 bg-purple-50/50 px-4 py-2.5 rounded-lg border border-purple-100/50">
+                                <span class="text-purple-800/70 text-sm font-medium">พ้อยสะสม</span>
+                                <span class="font-bold text-purple-600 text-base">${formatNum(row.points)}</span>
                             </div>
 
-                            <div class="bg-gradient-to-br from-green-50/50 to-emerald-50/80 rounded-xl p-3 border border-green-200/60 mt-2">
-                                <div class="flex justify-between items-center mb-1 text-xs">
+                            <div class="bg-gradient-to-br from-green-50/50 to-emerald-50/80 rounded-xl p-4 border border-green-200/60 mt-3">
+                                <div class="flex flex-wrap justify-between items-center gap-1 mb-1.5 text-sm">
                                     <span class="text-gray-500">เงินเดือน</span>
-                                    <span class="font-medium text-gray-700">${formatNum(row.salary || 0)}</span>
+                                    <span class="font-bold text-gray-700">${formatNum(row.salary || 0)}</span>
                                 </div>
-                                <div class="flex justify-between items-center mb-2 text-xs">
+                                <div class="flex flex-wrap justify-between items-center gap-1 mb-3 text-sm">
                                     <span class="text-orange-600 font-medium">ค่าคอมมิชชั่น</span>
-                                    <span class="font-bold text-orange-500">+${formatNum(row.commission)}</span>
+                                    <span class="font-bold text-orange-500 text-base">+${formatNum(row.commission)}</span>
                                 </div>
-                                <div class="flex justify-between items-center pt-2 border-t border-green-200/60">
-                                    <span class="font-bold text-green-800 text-xs">รายได้ทั้งหมด</span>
-                                    <span class="font-black text-green-600 text-lg">${formatNum(row.totalIncome)}</span>
+                                <div class="flex flex-wrap justify-between items-center gap-1 pt-3 border-t border-green-200/60">
+                                    <span class="font-bold text-green-800 text-sm">รายได้ทั้งหมด</span>
+                                    <span class="font-black text-green-600 text-2xl">${formatNum(row.totalIncome)}</span>
                                 </div>
                             </div>
                         </div>
